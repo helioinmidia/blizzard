@@ -3,19 +3,91 @@
   "playerMode": "webrtc,mse,hls,mjpeg",
   "rotationSeconds": 0,
   "groups": [
-    { "id": "casa", "name": "Casa", "kind": "unifi_protect" },
-    { "id": "condominio", "name": "Condomínio", "kind": "intelbras" },
-    { "id": "ha", "name": "Home Assistant", "kind": "home_assistant" }
+    {
+      "id": "casa",
+      "name": "Casa",
+      "kind": "unifi_protect"
+    },
+    {
+      "id": "condominio",
+      "name": "Condomínio",
+      "kind": "intelbras"
+    },
+    {
+      "id": "ha",
+      "name": "Home Assistant",
+      "kind": "home_assistant"
+    }
   ],
   "sources": [
-    { "type": "camera", "id": "casa-garagem", "name": "Garagem", "group": "casa", "stream": "casa_garagem", "hdStream": "casa_garagem_hd" },
-    { "type": "camera", "id": "casa-entrada", "name": "Entrada", "group": "casa", "stream": "casa_entrada", "hdStream": "casa_entrada_hd" },
-    { "type": "camera", "id": "casa-quintal", "name": "Quintal", "group": "casa", "stream": "casa_quintal", "hdStream": "casa_quintal_hd" },
-    { "type": "camera", "id": "cond-portaria", "name": "Portaria", "group": "condominio", "stream": "cond_portaria", "hdStream": "cond_portaria_hd" },
-    { "type": "camera", "id": "cond-portao", "name": "Portão veicular", "group": "condominio", "stream": "cond_portao", "hdStream": "cond_portao_hd" },
-    { "type": "camera", "id": "cond-piscina", "name": "Piscina", "group": "condominio", "stream": "cond_piscina" },
-    { "type": "dashboard", "id": "ha-visao-geral", "name": "Visão geral", "group": "ha", "url": "http://homeassistant.local:8123/lovelace/0" },
-    { "type": "dashboard", "id": "ha-energia", "name": "Energia", "group": "ha", "url": "http://homeassistant.local:8123/energy" }
+    {
+      "type": "camera",
+      "id": "casa-garagem",
+      "name": "Garagem",
+      "group": "casa",
+      "stream": "casa_garagem",
+      "hdStream": "casa_garagem_hd"
+    },
+    {
+      "type": "camera",
+      "id": "casa-entrada",
+      "name": "Entrada",
+      "group": "casa",
+      "stream": "casa_entrada",
+      "hdStream": "casa_entrada_hd"
+    },
+    {
+      "type": "camera",
+      "id": "casa-quintal",
+      "name": "Quintal",
+      "group": "casa",
+      "stream": "casa_quintal",
+      "hdStream": "casa_quintal_hd"
+    },
+    {
+      "type": "dashboard",
+      "id": "blzcam01",
+      "name": "BLZCAM01",
+      "group": "casa",
+      "url": "https://monitor.ui.com/d19c0eb6-3d9e-4549-b585-8dd4c83bb1da"
+    },
+    {
+      "type": "camera",
+      "id": "cond-portaria",
+      "name": "Portaria",
+      "group": "condominio",
+      "stream": "cond_portaria",
+      "hdStream": "cond_portaria_hd"
+    },
+    {
+      "type": "camera",
+      "id": "cond-portao",
+      "name": "Portão veicular",
+      "group": "condominio",
+      "stream": "cond_portao",
+      "hdStream": "cond_portao_hd"
+    },
+    {
+      "type": "camera",
+      "id": "cond-piscina",
+      "name": "Piscina",
+      "group": "condominio",
+      "stream": "cond_piscina"
+    },
+    {
+      "type": "dashboard",
+      "id": "ha-visao-geral",
+      "name": "Visão geral",
+      "group": "ha",
+      "url": "http://homeassistant.local:8123/lovelace/0"
+    },
+    {
+      "type": "dashboard",
+      "id": "ha-energia",
+      "name": "Energia",
+      "group": "ha",
+      "url": "http://homeassistant.local:8123/energy"
+    }
   ],
   "views": [
     {
@@ -23,28 +95,47 @@
       "name": "Geral",
       "columns": 3,
       "rows": 2,
-      "slots": ["casa-garagem", "casa-entrada", "cond-portaria", "cond-portao", "ha-visao-geral", "casa-quintal"]
+      "slots": [
+        "blzcam01",
+        "casa-entrada",
+        "cond-portaria",
+        "cond-portao",
+        "ha-visao-geral",
+        "casa-quintal"
+      ]
     },
     {
       "id": "casa",
       "name": "Casa",
       "columns": 2,
       "rows": 2,
-      "slots": ["casa-garagem", "casa-entrada", "casa-quintal", "ha-visao-geral"]
+      "slots": [
+        "blzcam01",
+        "casa-entrada",
+        "casa-quintal",
+        "ha-visao-geral"
+      ]
     },
     {
       "id": "condominio",
       "name": "Condomínio",
       "columns": 2,
       "rows": 2,
-      "slots": ["cond-portaria", "cond-portao", "cond-piscina", null]
+      "slots": [
+        "cond-portaria",
+        "cond-portao",
+        "cond-piscina",
+        null
+      ]
     },
     {
       "id": "home-assistant",
       "name": "Home Assistant",
       "columns": 1,
       "rows": 1,
-      "slots": ["ha-visao-geral"]
+      "slots": [
+        "ha-visao-geral"
+      ]
     }
   ]
 }
