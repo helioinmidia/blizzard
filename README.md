@@ -22,7 +22,7 @@ Home Assistant (iframe) ─┘              ▲
 | --- | --- |
 | [go2rtc](https://github.com/AlexxIT/go2rtc) | Recebe RTSP/RTSPS das câmeras e entrega ao navegador via WebRTC (ou MSE/HLS como fallback), sem transcodificar. |
 | Blizzard web | Aplicação React (este repositório) servida por nginx, que também faz proxy de `/go2rtc` para o go2rtc. |
-| Chromium em quiosque | Abre `http://localhost:8080` em tela cheia no boot do Pi. |
+| Chromium em quiosque | Abre `http://localhost/` em tela cheia no boot do Pi. |
 
 Tudo sobe com `docker compose` e reinicia sozinho após queda de energia.
 
@@ -42,7 +42,24 @@ sudo reboot
 ```
 
 O script instala Docker e Chromium, sobe os containers, cria o autostart do quiosque, desliga o
-descanso de tela e ativa o login automático no desktop. Depois do reboot a TV mostra a central.
+descanso de tela, ativa o login automático no desktop e define o hostname do Pi como
+`videowall.blizzard.net` (outro nome: `BLIZZARD_HOST=meu.nome ./pi/install.sh`). Depois do reboot a TV
+mostra a central, e de qualquer dispositivo da rede ela abre em `http://videowall.blizzard.net/`.
+
+### Fazer `videowall.blizzard.net` resolver na rede
+
+Um nome fora de `.local` não é anunciado sozinho; algum DNS precisa apontá-lo para o IP do Pi.
+Primeiro fixe o IP do Pi com uma reserva de DHCP no roteador. Depois escolha uma opção:
+
+- **DNS do roteador**: muitos roteadores (UniFi, Mikrotik, OpenWrt) têm "DNS local" ou "Static DNS
+  entries". Crie `videowall.blizzard.net` → IP do Pi.
+- **Pi-hole / AdGuard Home**: em *Local DNS records*, o mesmo registro.
+- **Você é dono de `blizzard.net`**: crie um registro `A` para `videowall` com o IP local do Pi
+  (ex.: 192.168.1.50) na zona pública. Funciona em casa e ninguém de fora alcança o IP privado.
+- **Só o laptop**: adicione `192.168.1.50 videowall.blizzard.net` ao `/etc/hosts`
+  (`C:\Windows\System32\drivers\etc\hosts` no Windows).
+
+O quiosque na TV não depende disso: ele abre `http://localhost/`.
 
 Para atualizar a Blizzard mais tarde:
 
@@ -77,7 +94,7 @@ mibo_sala: rtsp://admin:SENHA@192.168.0.120:554/onvif1
 Se o condomínio só libera acesso ao gravador por um app ou pela nuvem, peça à administração um
 usuário somente-leitura com RTSP habilitado; sem RTSP/ONVIF na rede não há como exibir as câmeras.
 
-Depois de editar: `sudo docker compose restart go2rtc`. O painel do go2rtc em `http://IP_DO_PI:1984`
+Depois de editar: `sudo docker compose restart go2rtc`. O painel do go2rtc em `http://videowall.blizzard.net:1984`
 mostra cada stream e permite testá-lo antes de colocar na grade.
 
 ### 2. Fontes e visões — `public/config/blizzard.config.json`
@@ -162,7 +179,7 @@ O Chromium do Pi decodifica vídeo por software. Regras práticas:
 ```bash
 npm install
 npm run dev            # http://localhost:5173, /go2rtc → http://127.0.0.1:1984
-GO2RTC_URL=http://IP_DO_PI:1984 npm run dev   # usa o go2rtc que já roda no Pi
+GO2RTC_URL=http://videowall.blizzard.net:1984 npm run dev   # usa o go2rtc que já roda no Pi
 npm run build && npm run lint
 ```
 
@@ -179,12 +196,12 @@ pi/                      instalação e quiosque do Raspberry Pi
 
 ## Solução de problemas
 
-- **"Sem sinal" numa célula** — abra `http://IP_DO_PI:1984`, clique no stream e veja o erro do go2rtc
+- **"Sem sinal" numa célula** — abra `http://videowall.blizzard.net:1984`, clique no stream e veja o erro do go2rtc
   (senha errada, câmera fora, codec H.265). O nome em `stream` precisa existir no `go2rtc.yaml`;
   o painel lateral (`S`) marca com um triângulo as fontes cujo stream não existe.
 - **Vídeo fica em "Conectando…" e cai para MSE** — WebRTC não negociou. Descomente `webrtc.candidates`
   no `go2rtc.yaml` com o IP do Pi e reinicie o go2rtc.
-- **Célula fica em "go2rtc inacessível" mas `http://IP_DO_PI:1984` abre** — o go2rtc recusa WebSocket
+- **Célula fica em "go2rtc inacessível" mas `http://videowall.blizzard.net:1984` abre** — o go2rtc recusa WebSocket
   quando o `Origin` do navegador não bate com o `Host` que chega a ele. O nginx deste projeto já remove o
   `Origin`; se você colocar outro proxy na frente, faça o mesmo ou defina `api.origin: "*"` no `go2rtc.yaml`.
 - **Painel do HA em branco** — falta `use_x_frame_options: false` no HA, ou a URL usa `https` com

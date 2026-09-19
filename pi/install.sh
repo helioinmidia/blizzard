@@ -8,16 +8,28 @@
 #   1. instala Docker (se faltar) e coloca o usuário no grupo docker;
 #   2. sobe go2rtc + servidor web da central com docker compose (reinicia sozinho no boot);
 #   3. instala Chromium e configura a sessão gráfica para abrir a central em quiosque no boot;
-#   4. desliga o descanso de tela e ativa login automático no desktop.
+#   4. desliga o descanso de tela e ativa login automático no desktop;
+#   5. define o hostname do Pi (BLIZZARD_HOST, padrão videowall.blizzard.net).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 REPO_DIR="$(pwd)"
 USER_NAME="${SUDO_USER:-$USER}"
+BLIZZARD_HOST="${BLIZZARD_HOST:-videowall.blizzard.net}"
+SHORT_HOST="${BLIZZARD_HOST%%.*}"
 
 if [ "$(id -u)" -eq 0 ]; then
   echo "Execute como usuário normal (o script pede sudo quando precisar)." >&2
   exit 1
+fi
+
+echo "==> Hostname: $BLIZZARD_HOST"
+sudo hostnamectl set-hostname "$BLIZZARD_HOST"
+# Mantém o nome curto e o FQDN resolvendo localmente (sudo e serviços reclamam sem isso).
+if grep -qE "^127\.0\.1\.1\s" /etc/hosts; then
+  sudo sed -i -E "s/^127\.0\.1\.1\s.*/127.0.1.1\t$BLIZZARD_HOST $SHORT_HOST/" /etc/hosts
+else
+  echo -e "127.0.1.1\t$BLIZZARD_HOST $SHORT_HOST" | sudo tee -a /etc/hosts >/dev/null
 fi
 
 echo "==> Pacotes base"
@@ -65,6 +77,8 @@ Próximos passos:
   - Edite go2rtc/go2rtc.yaml com as URLs reais das câmeras e reinicie o go2rtc:
       sudo docker compose restart go2rtc
   - Edite public/config/blizzard.config.json (fontes e visões) e recarregue a página.
-  - Acesse de outro dispositivo da rede: http://$(hostname -I | awk '{print $1}'):8080/
-  - Painel do go2rtc (diagnóstico de streams): http://$(hostname -I | awk '{print $1}'):1984/
+  - Acesse de outro dispositivo da rede: http://$BLIZZARD_HOST/  (ou http://$(hostname -I | awk '{print $1}')/)
+    Para o nome resolver na rede, aponte $BLIZZARD_HOST para o IP do Pi no DNS do roteador,
+    no Pi-hole ou na zona pública de blizzard.net (registro A com o IP local). Veja o README.
+  - Painel do go2rtc (diagnóstico de streams): http://$BLIZZARD_HOST:1984/
 MSG

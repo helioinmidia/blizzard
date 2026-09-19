@@ -3,7 +3,7 @@
 # Chamado pelo autostart da sessão gráfica do Raspberry Pi (ver pi/install.sh).
 set -u
 
-URL="${BLIZZARD_URL:-http://localhost:8080/}"
+URL="${BLIZZARD_URL:-http://localhost/}"
 
 # Espera o servidor web da central responder (o Docker pode subir depois da sessão gráfica).
 for _ in $(seq 1 60); do
