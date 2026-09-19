@@ -1,0 +1,28 @@
+# Blizzard · Central de Monitoramento
+# Sobe o go2rtc (proxy de vídeo) e o servidor web da central.
+# Funciona em x86_64 e ARM64 (Raspberry Pi 4 com Raspberry Pi OS 64 bits).
+services:
+  go2rtc:
+    image: alexxit/go2rtc:latest
+    container_name: blizzard-go2rtc
+    restart: unless-stopped
+    # WebRTC precisa de UDP direto até o navegador; a forma mais simples na rede local é host networking.
+    network_mode: host
+    volumes:
+      - ./go2rtc:/config
+    environment:
+      - TZ=America/Sao_Paulo
+
+  web:
+    build: .
+    image: blizzard-web:local
+    container_name: blizzard-web
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      # Edite public/config/blizzard.config.json e recarregue a página; não precisa rebuildar.
+      - ./public/config:/usr/share/nginx/html/config:ro
+    depends_on:
+      - go2rtc
+    environment:
+      - TZ=America/Sao_Paulo

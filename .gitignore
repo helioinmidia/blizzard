@@ -1,0 +1,19 @@
+# Dependências e build
+node_modules
+dist
+dist-ssr
+*.local
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# Editores
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+
+# Segredos: guarde sua cópia real do go2rtc fora do git se contiver senhas
+go2rtc/*.bak
