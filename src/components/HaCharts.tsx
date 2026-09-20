@@ -45,13 +45,13 @@ function useSize<T extends HTMLElement>() {
   return [ref, size] as const
 }
 
-/** Três marcas "redondas" que cobrem [min, max]. */
+/** Até ~5 marcas "redondas" que cobrem [min, max] sem desperdiçar a altura do gráfico. */
 function niceTicks(min: number, max: number): number[] {
   if (min === max) {
     min -= 1
     max += 1
   }
-  const rough = (max - min) / 2
+  const rough = (max - min) / 4
   const power = 10 ** Math.floor(Math.log10(rough))
   const step = [1, 2, 2.5, 5, 10].map((m) => m * power).find((s) => s >= rough) ?? rough
   const start = Math.floor(min / step) * step
@@ -76,7 +76,7 @@ function timeTicks(start: number, end: number): number[] {
 /** O gráfico tem 8,5em de altura: daí sai o "em" da célula, para os rótulos crescerem junto com ela na TV. */
 function axisMetrics(height: number) {
   const font = Math.max(9, Math.round((height / 8.5) * 0.62))
-  return { font, left: Math.round(font * 3.4), bottom: Math.round(font * 1.7) }
+  return { font, left: Math.round(font * 3.4), bottom: Math.round(font * 1.7), top: Math.round(font * 0.7) }
 }
 
 function Empty({ text }: { text: string }) {
@@ -116,12 +116,12 @@ export function GraphCard({ card, bridgeUrl, states, now }: CardProps) {
     const values = all.map((p) => p[1])
     const ticks = niceTicks(Math.min(...values), Math.max(...values))
     const [yMin, yMax] = [ticks[0], ticks[ticks.length - 1]]
-    const { font, left, bottom } = axisMetrics(height)
+    const { font, left, bottom, top } = axisMetrics(height)
     const innerWidth = Math.max(1, width - left - 4)
-    const innerHeight = Math.max(1, height - bottom - 4)
+    const innerHeight = Math.max(1, height - bottom - top)
     const x = (t: number) => left + ((t - start) / (end - start)) * innerWidth
-    const y = (v: number) => 4 + (1 - (v - yMin) / (yMax - yMin)) * innerHeight
-    return { start, end, ticks, font, left, innerWidth, innerHeight, x, y }
+    const y = (v: number) => top + (1 - (v - yMin) / (yMax - yMin)) * innerHeight
+    return { start, end, ticks, font, left, top, innerWidth, innerHeight, x, y }
   }, [series, width, height, card.hours, now])
 
   const hover = useMemo(() => {
@@ -190,7 +190,7 @@ export function GraphCard({ card, bridgeUrl, states, now }: CardProps) {
                   </g>
                 )
               })}
-              {hover && <line x1={hover.x} x2={hover.x} y1={4} y2={4 + plot.innerHeight} stroke="#6f83a3" strokeWidth={1} />}
+              {hover && <line x1={hover.x} x2={hover.x} y1={plot.top} y2={plot.top + plot.innerHeight} stroke="#6f83a3" strokeWidth={1} />}
             </svg>
             {hover && hover.rows.length > 0 && (
               <div
@@ -229,14 +229,14 @@ export function BarsCard({ card, bridgeUrl, states, now }: CardProps) {
     if (points.length === 0 || width === 0 || height === 0) return null
     const ticks = niceTicks(0, Math.max(...points.map((p) => p[1]), 0.1))
     const yMax = ticks[ticks.length - 1]
-    const { font, left, bottom } = axisMetrics(height)
+    const { font, left, bottom, top } = axisMetrics(height)
     const innerWidth = Math.max(1, width - left - 4)
-    const innerHeight = Math.max(1, height - bottom - 4)
+    const innerHeight = Math.max(1, height - bottom - top)
     const band = innerWidth / points.length
     // Barra fina: no máximo 24 px e sempre com 2 px de respiro entre vizinhas.
     const bar = Math.max(1, Math.min(24, band - 2))
-    const y = (v: number) => 4 + (1 - Math.max(0, v) / yMax) * innerHeight
-    return { ticks, font, left, innerHeight, band, bar, y, baseline: 4 + innerHeight }
+    const y = (v: number) => top + (1 - Math.max(0, v) / yMax) * innerHeight
+    return { ticks, font, left, innerHeight, band, bar, y, baseline: top + innerHeight }
   }, [points, width, height])
 
   const midnight = new Date(now).setHours(0, 0, 0, 0)
