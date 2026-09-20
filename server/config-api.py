@@ -88,6 +88,16 @@ def validate(raw):
         for j, slot in enumerate(v.get("slots", [])):
             if slot not in (None, "") and slot not in source_ids:
                 raise ConfigError(f'"views[{i}].slots[{j}]" referencia a fonte "{slot}", que não existe')
+        spans = v.get("spans", {})
+        if not isinstance(spans, dict):
+            raise ConfigError(f'"views[{i}].spans" deve ser um objeto')
+        for key, span in spans.items():
+            ok = (
+                key.isdigit() and int(key) < cols * rows and isinstance(span, dict)
+                and all(isinstance(span.get(k, 1), int) and 1 <= span.get(k, 1) <= limit for k, limit in (("cols", cols), ("rows", rows)))
+            )
+            if not ok:
+                raise ConfigError(f'"views[{i}].spans[{key}]" deve ser {{"cols", "rows"}} dentro da grade de {cols}x{rows}')
         if v["id"] in view_ids:
             raise ConfigError(f'visão "{v["id"]}" repetida')
         view_ids.add(v["id"])

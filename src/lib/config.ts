@@ -60,6 +60,12 @@ export interface View {
   rows: number
   /** IDs das fontes por posição (linha a linha). `null` deixa a célula vazia. */
   slots: (string | null)[]
+  /**
+   * Células maiores que 1×1, por índice do slot: `{ "0": { "cols": 2, "rows": 2 } }` faz o primeiro slot
+   * ocupar 2 colunas e 2 linhas (ex.: um painel grande ao lado de cartões). Os slots seguintes preenchem
+   * o espaço que sobra; os que não couberem na grade não são desenhados.
+   */
+  spans?: Record<string, { cols: number; rows: number }>
 }
 
 export interface BlizzardConfig {
@@ -205,13 +211,32 @@ export function parseConfig(raw: unknown): BlizzardConfig {
     })
     const total = columns * rows
     const normalized = Array.from({ length: total }, (_, k) => slots[k] ?? null)
-    return {
+    const view: View = {
       id: expectString(v.id, `views[${i}].id`),
       name: expectString(v.name, `views[${i}].name`),
       columns,
       rows,
       slots: normalized,
     }
+    if (v.spans !== undefined) {
+      const spans: NonNullable<View['spans']> = {}
+      for (const [key, value] of Object.entries(asRecord(v.spans, `views[${i}].spans`))) {
+        const path = `views[${i}].spans["${key}"]`
+        const index = Number(key)
+        if (!Number.isInteger(index) || index < 0 || index >= total) {
+          throw new ConfigError(`"${path}" deve ser o índice de um slot (0 a ${total - 1}).`)
+        }
+        const span = asRecord(value, path)
+        const cols = expectNumber(span.cols, `${path}.cols`, 1)
+        const spanRows = expectNumber(span.rows, `${path}.rows`, 1)
+        if (!Number.isInteger(cols) || !Number.isInteger(spanRows) || cols < 1 || spanRows < 1 || cols > columns || spanRows > rows) {
+          throw new ConfigError(`"${path}" deve caber na grade de ${columns}×${rows}.`)
+        }
+        if (cols > 1 || spanRows > 1) spans[String(index)] = { cols, rows: spanRows }
+      }
+      if (Object.keys(spans).length > 0) view.spans = spans
+    }
+    return view
   })
   if (new Set(views.map((v) => v.id)).size !== views.length) {
     throw new ConfigError('Há visões com o mesmo "id".')

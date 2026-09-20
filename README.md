@@ -177,6 +177,9 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
   (qualquer página em iframe).
 - `kind` aceita `unifi_protect`, `intelbras`, `home_assistant` ou `other` (só muda a etiqueta).
 - `slots` lista os IDs das fontes linha a linha; `null` deixa a célula vazia.
+- `spans` (opcional) aumenta células: `"spans": { "0": { "cols": 2, "rows": 2 } }` faz o primeiro slot ocupar
+  2×2, por exemplo um painel do Home Assistant grande com cartões ao lado. Os slots seguintes preenchem o
+  que sobra da grade.
 - **Tudo é salvo no servidor.** Trocar a fonte de uma célula pelo seletor, ou salvar no editor da
   tecla **C**, grava o arquivo no Pi pela API (`PUT /api/config`, com validação). Cada tela aberta
   (TV, laptop, celular) confere o servidor a cada 10 s e aplica a mudança sozinha. Nada fica no
