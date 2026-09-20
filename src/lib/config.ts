@@ -33,8 +33,19 @@ export interface HaEntityRef {
   name?: string
 }
 
+/**
+ * - `list`: estado atual de cada entidade (padrão). Só sensores numéricos → grade de números grandes.
+ * - `graph`: linhas com o histórico das últimas `hours` horas (até 5 séries, mesma unidade).
+ * - `bars`: variação por hora nas últimas 48 h de um medidor acumulado (ex.: kWh consumidos por hora).
+ * - `weather`: condição atual e previsão diária de uma entidade `weather.*`.
+ */
+export type HaCardKind = 'list' | 'graph' | 'bars' | 'weather'
+
 export interface HaCard {
   title: string
+  kind: HaCardKind
+  /** Janela do gráfico em horas (só `graph`; 1 a 72, padrão 24). */
+  hours: number
   entities: HaEntityRef[]
 }
 
@@ -129,6 +140,7 @@ function asRecord(value: unknown, path: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
+const haCardKinds: HaCardKind[] = ['list', 'graph', 'bars', 'weather']
 const sourceKinds: SourceKind[] = ['unifi_protect', 'intelbras', 'home_assistant', 'other']
 
 /** Valida e normaliza um JSON de configuração. Lança ConfigError com mensagem legível. */
@@ -171,7 +183,16 @@ export function parseConfig(raw: unknown): BlizzardConfig {
           if (e.name !== undefined) entity.name = expectString(e.name, `${path}.name`)
           return entity
         })
-        return { title: expectString(c.title, `sources[${i}].cards[${j}].title`), entities }
+        const cardPath = `sources[${i}].cards[${j}]`
+        const kind = (c.kind ?? 'list') as HaCardKind
+        if (!haCardKinds.includes(kind)) throw new ConfigError(`"${cardPath}.kind" deve ser um de: ${haCardKinds.join(', ')}.`)
+        const hours = expectNumber(c.hours, `${cardPath}.hours`, 24)
+        if (hours < 1 || hours > 72) throw new ConfigError(`"${cardPath}.hours" deve ficar entre 1 e 72.`)
+        if (kind === 'graph' && entities.length > 5) throw new ConfigError(`"${cardPath}" aceita até 5 entidades num gráfico.`)
+        if (kind === 'weather' && !entities[0]?.entity.startsWith('weather.')) {
+          throw new ConfigError(`"${cardPath}" precisa de uma entidade weather.* em "entities".`)
+        }
+        return { title: expectString(c.title, `${cardPath}.title`), kind, hours, entities }
       })
       const bridgeUrl = typeof s.bridgeUrl === 'string' && s.bridgeUrl ? s.bridgeUrl.replace(/\/$/, '') : '/ha'
       const scale = expectNumber(s.scale, `sources[${i}].scale`, 1)

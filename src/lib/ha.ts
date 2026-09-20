@@ -10,21 +10,38 @@ export interface HaEntityState {
     current_temperature?: number
     temperature?: number
     hvac_action?: string
+    humidity?: number
+    wind_speed?: number
+    wind_speed_unit?: string
+    temperature_unit?: string
   }
   last_changed: string | null
 }
+
+export interface HaForecastDay {
+  datetime: string
+  condition?: string
+  temperature?: number
+  templow?: number
+  precipitation?: number
+  precipitation_probability?: number
+}
+
+/** Pontos [instante em ms, valor] já reduzidos pela ponte. */
+export type HaSeries = Record<string, [number, number][]>
 
 export interface HaSnapshot {
   /** "connecting" até a primeira resposta; "offline" = a ponte respondeu, mas está sem o Home Assistant. */
   status: 'connecting' | 'online' | 'offline' | 'unreachable'
   states: Record<string, HaEntityState>
+  forecasts: Record<string, HaForecastDay[]>
 }
 
 type Listener = () => void
 
 /** Uma conexão SSE por URL de ponte, compartilhada por todas as células que a usam. */
 class HaStore {
-  private snapshot: HaSnapshot = { status: 'connecting', states: {} }
+  private snapshot: HaSnapshot = { status: 'connecting', states: {}, forecasts: {} }
   private listeners = new Set<Listener>()
   private stream: EventSource | null = null
   private readonly bridgeUrl: string
@@ -53,8 +70,16 @@ class HaStore {
     const stream = new EventSource(`${this.bridgeUrl}/events`)
     this.stream = stream
     stream.addEventListener('snapshot', (ev) => {
-      const data = JSON.parse((ev as MessageEvent<string>).data) as { connected: boolean; states: HaSnapshot['states'] }
-      this.set({ status: data.connected ? 'online' : 'offline', states: data.states })
+      const data = JSON.parse((ev as MessageEvent<string>).data) as {
+        connected: boolean
+        states: HaSnapshot['states']
+        forecasts?: HaSnapshot['forecasts']
+      }
+      this.set({ status: data.connected ? 'online' : 'offline', states: data.states, forecasts: data.forecasts ?? {} })
+    })
+    stream.addEventListener('forecast', (ev) => {
+      const data = JSON.parse((ev as MessageEvent<string>).data) as { entity_id: string; forecast: HaForecastDay[] }
+      this.set({ ...this.snapshot, forecasts: { ...this.snapshot.forecasts, [data.entity_id]: data.forecast } })
     })
     stream.addEventListener('state', (ev) => {
       const data = JSON.parse((ev as MessageEvent<string>).data) as { entity_id: string; state: HaEntityState | null }
@@ -74,8 +99,63 @@ class HaStore {
   private close() {
     this.stream?.close()
     this.stream = null
-    this.snapshot = { status: 'connecting', states: {} }
+    this.snapshot = { status: 'connecting', states: {}, forecasts: {} }
   }
+}
+
+/** Busca periódica de /history ou /statistics, uma por URL, compartilhada pelos cartões que a usam. */
+class SeriesStore {
+  private series: HaSeries | null = null
+  private listeners = new Set<Listener>()
+  private timer: number | null = null
+  private readonly url: string
+  private readonly intervalMs: number
+
+  constructor(url: string, intervalMs: number) {
+    this.url = url
+    this.intervalMs = intervalMs
+  }
+
+  subscribe = (listener: Listener): (() => void) => {
+    this.listeners.add(listener)
+    if (this.listeners.size === 1) {
+      void this.load()
+      this.timer = window.setInterval(() => void this.load(), this.intervalMs)
+    }
+    return () => {
+      this.listeners.delete(listener)
+      if (this.listeners.size === 0 && this.timer !== null) {
+        window.clearInterval(this.timer)
+        this.timer = null
+      }
+    }
+  }
+
+  getSnapshot = (): HaSeries | null => this.series
+
+  private async load() {
+    try {
+      const response = await fetch(this.url, { cache: 'no-store' })
+      if (!response.ok) return // mantém o último gráfico bom na tela
+      const body = (await response.json()) as { series: HaSeries }
+      this.series = body.series
+      for (const listener of this.listeners) listener()
+    } catch {
+      // ponte fora do ar: tenta de novo no próximo ciclo
+    }
+  }
+}
+
+const seriesStores = new Map<string, SeriesStore>()
+
+export function haSeriesStore(bridgeUrl: string, feed: 'history' | 'statistics'): SeriesStore {
+  const url = `${bridgeUrl}/${feed}`
+  let store = seriesStores.get(url)
+  if (!store) {
+    store = new SeriesStore(url, feed === 'history' ? 120_000 : 600_000)
+    seriesStores.set(url, store)
+  }
+  return store
 }
 
 const stores = new Map<string, HaStore>()
@@ -230,6 +310,7 @@ export interface CardSummary {
 
 /** Resumo no cabeçalho do cartão; só aparece quando todas as entidades são do mesmo tipo. */
 export function summarizeCard(card: HaCard, states: HaSnapshot['states']): CardSummary | null {
+  if (card.kind !== 'list') return null
   const ids = card.entities.map((e) => e.entity)
   if (ids.length < 2) return null
   const available = ids.filter((id) => isAvailable(states[id]))
@@ -267,5 +348,31 @@ export function summarizeCard(card: HaCard, states: HaSnapshot['states']): CardS
 
 /** Cartões só de sensores numéricos viram uma grade de números grandes; os demais, uma lista. */
 export function isStatCard(card: HaCard): boolean {
-  return card.entities.length > 0 && card.entities.every((e) => domainOf(e.entity) === 'sensor')
+  return card.kind === 'list' && card.entities.length > 0 && card.entities.every((e) => domainOf(e.entity) === 'sensor')
+}
+
+const conditions: Record<string, string> = {
+  'clear-night': 'Céu limpo',
+  cloudy: 'Nublado',
+  exceptional: 'Alerta',
+  fog: 'Neblina',
+  hail: 'Granizo',
+  lightning: 'Trovoadas',
+  'lightning-rainy': 'Tempestade',
+  partlycloudy: 'Parcialmente nublado',
+  pouring: 'Chuva forte',
+  rainy: 'Chuva',
+  snowy: 'Neve',
+  'snowy-rainy': 'Chuva com neve',
+  sunny: 'Ensolarado',
+  windy: 'Vento',
+  'windy-variant': 'Vento',
+}
+
+export function conditionLabel(condition: string | undefined): string {
+  return condition ? conditions[condition] ?? condition : '—'
+}
+
+export function formatNumber(value: number, unit?: string): string {
+  return withUnit(value, unit)
 }

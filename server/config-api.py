@@ -69,6 +69,8 @@ def validate(raw):
             for j, card in enumerate(cards):
                 if not isinstance(card, dict) or not card.get("title") or not isinstance(card.get("entities"), list):
                     raise ConfigError(f'"sources[{i}].cards[{j}]" precisa de "title" e de uma lista "entities"')
+                if card.get("kind", "list") not in ("list", "graph", "bars", "weather"):
+                    raise ConfigError(f'"sources[{i}].cards[{j}].kind" deve ser "list", "graph", "bars" ou "weather"')
                 for k, ref in enumerate(card["entities"]):
                     entity = ref.get("entity") if isinstance(ref, dict) else ref
                     if not isinstance(entity, str) or not ENTITY_ID.match(entity):

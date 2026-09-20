@@ -214,7 +214,28 @@ em iframe.
 4. `sudo docker compose up -d --build`. Mudanças posteriores na lista de entidades não pedem restart:
    a ponte relê o arquivo sozinha.
 
-Como cada entidade aparece depende do domínio e do `device_class` dela:
+Cada cartão tem um `kind` (o padrão é `list`):
+
+| `kind` | O que mostra |
+| --- | --- |
+| `list` | Estado atual de cada entidade (tabela abaixo) |
+| `graph` | Linhas com o histórico das últimas `hours` horas (padrão 24, até 72), até 5 entidades da mesma unidade. Legenda com o valor atual; passar o mouse mostra os valores naquele instante |
+| `bars` | Variação por hora nas últimas 48 h de um medidor acumulado, ex.: kWh consumidos em cada hora, com o total de hoje |
+| `weather` | Condição atual e previsão diária de uma entidade `weather.*` |
+
+```jsonc
+{ "title": "Temperatura · 24 h", "kind": "graph", "hours": 24, "entities": [
+    { "entity": "sensor.term_externo_temperature", "name": "Externo" },
+    { "entity": "sensor.term_sala_temperature", "name": "Sala" } ] },
+{ "title": "Consumo por hora", "kind": "bars", "entities": [ { "entity": "sensor.energia_ano", "name": "Consumo" } ] },
+{ "title": "Tempo", "kind": "weather", "entities": ["weather.home"] }
+```
+
+Com isso uma fonte `ha` grande (veja `spans` acima) faz o papel de um dashboard inteiro, servido pelo próprio
+Pi: não precisa de iframe, de login na TV nem de mudança no Home Assistant. O histórico vem da ponte em
+médias de 5 minutos (`/ha/history`) e as barras das estatísticas do HA (`/ha/statistics`).
+
+Num cartão `list`, como cada entidade aparece depende do domínio e do `device_class` dela:
 
 | Entidade | Exibição |
 | --- | --- |

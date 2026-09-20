@@ -3,9 +3,11 @@
 // Mantém o token do HA no servidor e entrega ao navegador, por SSE, somente os estados das entidades
 // citadas nas fontes "ha" do blizzard.config.json. É somente leitura: não há rota que chame serviços.
 //
-//   GET /states  → { connected, states }            (foto atual)
-//   GET /events  → SSE: "snapshot", "state", "status" (tempo real)
-//   GET /health  → { connected, entities }
+//   GET /states      → { connected, states, forecasts }          (foto atual)
+//   GET /events      → SSE: "snapshot", "state", "forecast", "status" (tempo real)
+//   GET /history     → { hours, series: { entity_id: [[ms, valor], …] } }   cartões "graph"
+//   GET /statistics  → { series: { entity_id: [[ms, variação], …] } }       cartões "bars" (por hora, 48 h)
+//   GET /health      → { connected, entities }
 //
 // Sem dependências: usa o WebSocket global do Node 22+.
 import { createServer } from 'node:http'
@@ -26,6 +28,10 @@ const KEPT_ATTRIBUTES = [
   'current_temperature',
   'temperature',
   'hvac_action',
+  'humidity',
+  'wind_speed',
+  'wind_speed_unit',
+  'temperature_unit',
 ]
 
 const log = (...args) => console.log(new Date().toISOString(), ...args)
@@ -39,6 +45,14 @@ const states = new Map()
 /** @type {Set<import('node:http').ServerResponse>} */
 const clients = new Set()
 let entityIds = []
+let wanted = { entities: new Set(), history: new Set(), statistics: new Set(), weather: new Set(), hours: 24 }
+/** @type {Map<string, object[]>} */
+const forecasts = new Map()
+/** Pedidos em andamento no WebSocket do HA: id → resolve. */
+const pendingRequests = new Map()
+/** Assinaturas de previsão do tempo: id da mensagem → entidade. */
+const forecastSubscriptions = new Map()
+const cache = new Map()
 let connected = false
 let socket = null
 let reconnectTimer = null
@@ -48,20 +62,28 @@ let lastActivity = 0
 let authenticated = false
 let nextId = 2
 
-function readEntityIds() {
+/** Entidades citadas nas fontes "ha", separadas pelo que cada tipo de cartão precisa da ponte. */
+function readWanted() {
   try {
     const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'))
-    const ids = new Set()
+    const wanted = { entities: new Set(), history: new Set(), statistics: new Set(), weather: new Set(), hours: 24 }
     for (const source of config.sources ?? []) {
       if (source?.type !== 'ha') continue
       for (const card of source.cards ?? []) {
         for (const item of card?.entities ?? []) {
           const id = typeof item === 'string' ? item : item?.entity
-          if (typeof id === 'string' && /^[a-z_]+\.[a-z0-9_]+$/.test(id)) ids.add(id)
+          if (typeof id !== 'string' || !/^[a-z_]+\.[a-z0-9_]+$/.test(id)) continue
+          if (card.kind === 'bars') wanted.statistics.add(id)
+          else wanted.entities.add(id)
+          if (card.kind === 'graph') {
+            wanted.history.add(id)
+            if (Number.isFinite(card.hours)) wanted.hours = Math.min(72, Math.max(wanted.hours, card.hours))
+          }
+          if (card.kind === 'weather' && id.startsWith('weather.')) wanted.weather.add(id)
         }
       }
     }
-    return [...ids].sort()
+    return wanted
   } catch (err) {
     log(`Não foi possível ler ${CONFIG_PATH}: ${err.message}`)
     return null
@@ -74,7 +96,7 @@ function broadcast(event, data) {
 }
 
 function snapshot() {
-  return { connected, states: Object.fromEntries(states) }
+  return { connected, states: Object.fromEntries(states), forecasts: Object.fromEntries(forecasts) }
 }
 
 function setConnected(value) {
@@ -138,6 +160,8 @@ function dropSocket(reason) {
       // socket já encerrado
     }
   }
+  for (const settle of pendingRequests.values()) settle({ success: false, error: { message: 'conexão com o Home Assistant caiu' } })
+  pendingRequests.clear()
   if (connected) log(`Conexão com o Home Assistant caiu (${reason}); tentando de novo.`)
   else if (++failedAttempts % 10 === 0) log(`Ainda sem conexão com o Home Assistant (${reason}); ${failedAttempts} tentativas.`)
   setConnected(false)
@@ -197,8 +221,30 @@ function connect() {
       failedAttempts = 0
       authenticated = true
       ws.send(JSON.stringify({ id: 1, type: 'subscribe_entities', entity_ids: entityIds }))
+      forecastSubscriptions.clear()
+      for (const entity of wanted.weather) {
+        const id = nextId++
+        forecastSubscriptions.set(id, entity)
+        ws.send(JSON.stringify({ id, type: 'weather/subscribe_forecast', forecast_type: 'daily', entity_id: entity }))
+      }
+    } else if (msg.type === 'result' && pendingRequests.has(msg.id)) {
+      const settle = pendingRequests.get(msg.id)
+      pendingRequests.delete(msg.id)
+      settle(msg)
     } else if (msg.type === 'result' && msg.success === false) {
       log(`Home Assistant devolveu erro: ${msg.error?.message ?? 'desconhecido'}`)
+    } else if (msg.type === 'event' && forecastSubscriptions.has(msg.id)) {
+      const entity = forecastSubscriptions.get(msg.id)
+      const days = (msg.event?.forecast ?? []).slice(0, 6).map((day) => ({
+        datetime: day.datetime,
+        condition: day.condition,
+        temperature: day.temperature,
+        templow: day.templow,
+        precipitation: day.precipitation,
+        precipitation_probability: day.precipitation_probability,
+      }))
+      forecasts.set(entity, days)
+      broadcast('forecast', { entity_id: entity, forecast: days })
     } else if (msg.type === 'event' && msg.id === 1) {
       if (first) {
         // A primeira mensagem traz todas as entidades: troca o mapa inteiro.
@@ -240,11 +286,101 @@ setInterval(() => {
 }, 5_000)
 
 function reloadConfig() {
-  const ids = readEntityIds()
-  if (ids === null || ids.join() === entityIds.join()) return
-  entityIds = ids
-  log(`Configuração lida: ${ids.length} entidades.`)
+  const next = readWanted()
+  if (next === null) return
+  const signature = (w) => JSON.stringify([[...w.entities].sort(), [...w.history].sort(), [...w.statistics].sort(), [...w.weather].sort(), w.hours])
+  if (signature(next) === signature(wanted) && entityIds.length > 0) return
+  wanted = next
+  entityIds = [...next.entities].sort()
+  cache.clear()
+  log(`Configuração lida: ${entityIds.length} entidades, ${next.history.size} em gráficos, ${next.statistics.size} em barras.`)
   connect()
+}
+
+/** Pergunta ao HA pelo WebSocket já autenticado. Rejeita se a conexão cair ou o HA devolver erro. */
+function request(message, timeoutMs = 20_000) {
+  return new Promise((resolve, reject) => {
+    if (!socket || !authenticated || socket.readyState !== WebSocket.OPEN) return reject(new Error('sem conexão com o Home Assistant'))
+    const id = nextId++
+    const timer = setTimeout(() => {
+      pendingRequests.delete(id)
+      reject(new Error('Home Assistant não respondeu'))
+    }, timeoutMs)
+    pendingRequests.set(id, (msg) => {
+      clearTimeout(timer)
+      if (msg.success) resolve(msg.result)
+      else reject(new Error(msg.error?.message ?? 'erro do Home Assistant'))
+    })
+    socket.send(JSON.stringify({ id, ...message }))
+  })
+}
+
+async function cached(key, ttlMs, produce) {
+  const hit = cache.get(key)
+  if (hit && Date.now() - hit.at < ttlMs) return hit.value
+  const value = await produce()
+  cache.set(key, { at: Date.now(), value })
+  return value
+}
+
+/** Histórico numérico em médias de 5 min (24 h = 288 pontos por série): leve para o navegador do Pi. */
+async function loadHistory() {
+  const ids = [...wanted.history]
+  if (ids.length === 0) return { hours: wanted.hours, series: {} }
+  const end = new Date()
+  const start = new Date(end.getTime() - wanted.hours * 3_600_000)
+  const raw = await request({
+    type: 'history/history_during_period',
+    start_time: start.toISOString(),
+    end_time: end.toISOString(),
+    entity_ids: ids,
+    minimal_response: true,
+    no_attributes: true,
+    significant_changes_only: false,
+    include_start_time_state: true,
+  })
+  const bucketMs = 300_000
+  const series = {}
+  for (const id of ids) {
+    const buckets = new Map()
+    for (const point of raw?.[id] ?? []) {
+      const value = Number(point.s)
+      if (point.s === '' || !Number.isFinite(value)) continue
+      const at = Math.max(start.getTime(), (point.lu ?? point.lc) * 1000)
+      const key = Math.floor(at / bucketMs) * bucketMs
+      const bucket = buckets.get(key) ?? { sum: 0, n: 0 }
+      bucket.sum += value
+      bucket.n += 1
+      buckets.set(key, bucket)
+    }
+    series[id] = [...buckets.entries()].sort((a, b) => a[0] - b[0]).map(([t, b]) => [t, Math.round((b.sum / b.n) * 100) / 100])
+  }
+  return { hours: wanted.hours, series }
+}
+
+/** Variação por hora nas últimas 48 h (ex.: kWh consumidos em cada hora a partir de um medidor acumulado). */
+async function loadStatistics() {
+  const ids = [...wanted.statistics]
+  if (ids.length === 0) return { series: {} }
+  const start = new Date(Date.now() - 48 * 3_600_000)
+  start.setMinutes(0, 0, 0)
+  const raw = await request({
+    type: 'recorder/statistics_during_period',
+    start_time: start.toISOString(),
+    statistic_ids: ids,
+    period: 'hour',
+    types: ['change'],
+  })
+  const series = {}
+  for (const id of ids) {
+    series[id] = (raw?.[id] ?? []).filter((row) => Number.isFinite(row.change)).map((row) => [row.start, Math.round(row.change * 1000) / 1000])
+  }
+  return { series }
+}
+
+function sendJson(res, status, body) {
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
+  res.end(JSON.stringify(body))
 }
 
 const server = createServer((req, res) => {
@@ -264,6 +400,10 @@ const server = createServer((req, res) => {
   } else if (path === '/states') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
     res.end(JSON.stringify(snapshot()))
+  } else if (path === '/history') {
+    cached('history', 60_000, loadHistory).then((body) => sendJson(res, 200, body), (err) => sendJson(res, 503, { error: err.message, series: {} }))
+  } else if (path === '/statistics') {
+    cached('statistics', 300_000, loadStatistics).then((body) => sendJson(res, 200, body), (err) => sendJson(res, 503, { error: err.message, series: {} }))
   } else if (path === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store' })
     res.end(JSON.stringify({ connected, entities: entityIds.length }))

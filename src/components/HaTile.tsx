@@ -2,6 +2,7 @@ import { useEffect, useState, useSyncExternalStore } from 'react'
 import { Loader2, WifiOff } from 'lucide-react'
 import type { HaCard, HaSource } from '../lib/config'
 import { describeEntity, haStore, isStatCard, summarizeCard, type HaSnapshot, type Tone } from '../lib/ha'
+import { BarsCard, GraphCard, WeatherCard } from './HaCharts'
 
 const toneText: Record<Tone, string> = {
   neutral: 'text-frost-100',
@@ -26,7 +27,15 @@ function useNow(intervalMs: number): number {
   return now
 }
 
-function Card({ card, states, now }: { card: HaCard; states: HaSnapshot['states']; now: number }) {
+interface CardProps {
+  card: HaCard
+  bridgeUrl: string
+  states: HaSnapshot['states']
+  forecasts: HaSnapshot['forecasts']
+  now: number
+}
+
+function Card({ card, bridgeUrl, states, forecasts, now }: CardProps) {
   const summary = summarizeCard(card, states)
   const stat = isStatCard(card)
   // Listas longas (ex.: movimento em todos os cômodos) ocupam a largura toda, em duas colunas.
@@ -39,7 +48,13 @@ function Card({ card, states, now }: { card: HaCard; states: HaSnapshot['states'
         {summary && <span className={`shrink-0 text-[0.78em] font-medium ${toneText[summary.tone]}`}>{summary.text}</span>}
       </header>
 
-      {stat ? (
+      {card.kind === 'graph' ? (
+        <GraphCard card={card} bridgeUrl={bridgeUrl} states={states} now={now} />
+      ) : card.kind === 'bars' ? (
+        <BarsCard card={card} bridgeUrl={bridgeUrl} states={states} now={now} />
+      ) : card.kind === 'weather' ? (
+        <WeatherCard card={card} states={states} forecasts={forecasts} />
+      ) : stat ? (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(5.2em,1fr))] gap-x-[0.75em] gap-y-[0.6em]">
           {card.entities.map((ref) => {
             const entity = states[ref.entity]
@@ -76,7 +91,7 @@ function Card({ card, states, now }: { card: HaCard; states: HaSnapshot['states'
 
 export function HaTile({ source }: { source: HaSource }) {
   const store = haStore(source.bridgeUrl)
-  const { status, states } = useSyncExternalStore(store.subscribe, store.getSnapshot)
+  const { status, states, forecasts } = useSyncExternalStore(store.subscribe, store.getSnapshot)
   const now = useNow(30_000)
   const hasData = Object.keys(states).length > 0
 
@@ -106,7 +121,7 @@ export function HaTile({ source }: { source: HaSource }) {
         ) : (
           <div className="grid grid-flow-row-dense grid-cols-[repeat(auto-fit,minmax(min(100%,15em),1fr))] items-start gap-[0.6em]">
             {source.cards.map((card, index) => (
-              <Card key={`${index}-${card.title}`} card={card} states={states} now={now} />
+              <Card key={`${index}-${card.title}`} card={card} bridgeUrl={source.bridgeUrl} states={states} forecasts={forecasts} now={now} />
             ))}
           </div>
         )}
