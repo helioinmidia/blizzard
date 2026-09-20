@@ -1,4 +1,4 @@
-import { AlertTriangle, Camera, LayoutDashboard } from 'lucide-react'
+import { AlertTriangle, Camera, Gauge, LayoutDashboard } from 'lucide-react'
 import type { BlizzardConfig } from '../lib/config'
 import type { Go2rtcStatus } from '../lib/go2rtc'
 import { SourceBadge } from './SourceBadge'
@@ -39,6 +39,8 @@ export function Sidebar({ config, status, onPickSource }: Props) {
                     >
                       {source.type === 'camera' ? (
                         <Camera className="h-3.5 w-3.5 shrink-0 text-frost-500" />
+                      ) : source.type === 'ha' ? (
+                        <Gauge className="h-3.5 w-3.5 shrink-0 text-frost-500" />
                       ) : (
                         <LayoutDashboard className="h-3.5 w-3.5 shrink-0 text-frost-500" />
                       )}

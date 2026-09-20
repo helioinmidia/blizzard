@@ -4,7 +4,8 @@ Video wall para TV que reúne, numa única tela:
 
 - **Câmeras da casa** — UniFi Protect (UDM / UNVR / Cloud Key)
 - **Câmeras do condomínio** — DVR/NVR e câmeras Intelbras
-- **Painéis do Home Assistant** — qualquer dashboard, embutido ao vivo
+- **Home Assistant** — cartões de resumo ao vivo (temperaturas, persianas, movimento, portas…) ou
+  qualquer dashboard embutido
 
 Roda inteiro num **Raspberry Pi 4** ligado à TV por HDMI. Nada depende de laptop ou celular: o Pi
 serve a página, converte os streams das câmeras para o navegador e abre o Chromium em modo quiosque no boot.
@@ -14,15 +15,16 @@ serve a página, converte os streams das câmeras para o navegador e abre o Chro
 ```
 Câmeras UniFi (RTSPS) ─┐
 Câmeras Intelbras (RTSP) ┼─▶ go2rtc ─▶ WebRTC / MSE ─▶ Chromium (quiosque) ─▶ TV
-Home Assistant (iframe) ─┘              ▲
-                                  Blizzard web (nginx + React)
+                                        ▲
+Home Assistant ─▶ ha-bridge (SSE) ─▶ Blizzard web (nginx + React)
 ```
 
 | Peça | Função |
 | --- | --- |
 | [go2rtc](https://github.com/AlexxIT/go2rtc) | Recebe RTSP/RTSPS das câmeras e entrega ao navegador via WebRTC (ou MSE/HLS como fallback), sem transcodificar. |
-| Blizzard web | Aplicação React (este repositório) servida por nginx, que também faz proxy de `/go2rtc` para o go2rtc e de `/api` para a API de configuração. |
+| Blizzard web | Aplicação React (este repositório) servida por nginx, que também faz proxy de `/go2rtc` para o go2rtc de `/api` para a API de configuração e de `/ha` para a ponte do Home Assistant. |
 | API de configuração | `server/config-api.py` (Python, sem dependências): lê e grava `public/config/blizzard.config.json`. Toda alteração feita na tela é salva aqui, nunca no navegador. |
+| ha-bridge | Serviço Node sem dependências (`ha-bridge/server.mjs`). Guarda o token do Home Assistant no Pi e envia ao navegador, em tempo real e só para leitura, os estados das entidades usadas nos cartões. |
 | Chromium em quiosque | Abre `http://localhost/` em tela cheia no boot do Pi. |
 
 Tudo sobe com `docker compose` e reinicia sozinho após queda de energia.
@@ -35,6 +37,7 @@ de preferência por cabo. Câmeras, Pi e Home Assistant na mesma rede local.
 ```bash
 git clone https://github.com/helioinmidia/blizzard.git ~/blizzard
 cd ~/blizzard
+cp .env.example .env && nano .env                # URL e token do Home Assistant (cartões de resumo)
 ./pi/install.sh
 sudo reboot
 ```
@@ -170,6 +173,8 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
 }
 ```
 
+- `type` da fonte: `camera` (stream do go2rtc), `ha` (cartões do Home Assistant, seção 3) ou `dashboard`
+  (qualquer página em iframe).
 - `kind` aceita `unifi_protect`, `intelbras`, `home_assistant` ou `other` (só muda a etiqueta).
 - `slots` lista os IDs das fontes linha a linha; `null` deixa a célula vazia.
 - **Tudo é salvo no servidor.** Trocar a fonte de uma célula pelo seletor, ou salvar no editor da
@@ -179,9 +184,59 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
 - O arquivo é gravado com o usuário dono do repositório (o `pi/install.sh` registra o UID em `.env`),
   então continua editável fora do container.
 
-### 3. Home Assistant dentro do iframe
+### 3. Home Assistant — cartões de resumo
 
-O HA bloqueia iframes por padrão. Em `configuration.yaml` do HA:
+Uma fonte `"type": "ha"` desenha cartões nativos com os estados das entidades, atualizados em tempo real.
+Não precisa de login na TV nem de mudança no Home Assistant, e pesa muito menos no Pi do que um dashboard
+em iframe.
+
+1. No HA, crie um token: *Perfil → Segurança → Tokens de acesso de longa duração → Criar token*.
+2. No Pi, `cp .env.example .env` e preencha `HA_URL` (como o Pi enxerga o HA) e `HA_TOKEN`.
+   O `.env` fica fora do git.
+3. Declare a fonte e coloque o `id` dela nos `slots` de uma visão:
+
+```jsonc
+{ "type": "ha", "id": "ha-casa", "name": "Casa agora", "group": "ha",
+  "scale": 1,                        // opcional: 1.2 aumenta o texto, 0.9 diminui
+  "cards": [
+    { "title": "Temperatura", "entities": [
+        { "entity": "sensor.term_sala_temperature", "name": "Sala" },
+        "sensor.term_externo_temperature"            // sem "name": usa o nome do HA
+    ] },
+    { "title": "Persianas", "entities": [ { "entity": "cover.persiana_suite", "name": "Suíte" } ] },
+    { "title": "Movimento", "entities": [ { "entity": "binary_sensor.sensor_sala", "name": "Sala" } ] }
+  ] }
+```
+
+4. `sudo docker compose up -d --build`. Mudanças posteriores na lista de entidades não pedem restart:
+   a ponte relê o arquivo sozinha.
+
+Como cada entidade aparece depende do domínio e do `device_class` dela:
+
+| Entidade | Exibição |
+| --- | --- |
+| `sensor` numérico | Número grande com unidade; o cabeçalho do cartão mostra a faixa mín – máx |
+| `cover` | Aberta / Fechada / Abrindo / Fechando, com a posição quando parcial; cabeçalho "2 de 4 abertas" |
+| `binary_sensor` de movimento/presença | **Movimento** em destaque, ou "Livre · há 12 min"; cabeçalho "2 com movimento" |
+| `binary_sensor` de porta/janela | Aberta (em vermelho, com há quanto tempo) / Fechada |
+| `binary_sensor` de fumaça, gás, vazamento, problema | Alerta (vermelho) / Normal |
+| `climate` | Modo atual e temperatura medida |
+| `person`, `lock`, `alarm_control_panel`, `light`, `switch` | Em casa/Fora, Trancada/Destrancada, Armado/Desarmado, Ligado/Desligado |
+
+Cartões só com sensores numéricos viram uma grade de números; listas com mais de 6 entidades ocupam a
+largura toda em duas colunas. O texto acompanha o tamanho da célula, então a mesma fonte serve na grade e
+ampliada.
+
+**Segurança.** O token nunca chega ao navegador: fica no container `ha-bridge`, que escuta apenas em
+`127.0.0.1:8099` e é publicado pelo nginx em `/ha/`. A ponte só lê, e só expõe as entidades citadas no
+`blizzard.config.json` **do servidor** (entidades adicionadas apenas pelo editor da tecla `C`, que grava no
+navegador, aparecem como "Sem dados" até entrarem no arquivo). Quem estiver na rede local consegue ver
+esses estados, assim como já consegue ver as câmeras.
+
+### 4. Home Assistant dentro de um iframe (opcional)
+
+Para embutir um dashboard inteiro do HA use uma fonte `"type": "dashboard"` com a URL dele. O HA bloqueia
+iframes por padrão. Em `configuration.yaml` do HA:
 
 ```yaml
 http:
@@ -235,6 +290,8 @@ npm install
 python3 server/config-api.py &                 # API de configuração em http://127.0.0.1:8787
 npm run dev            # http://localhost:5173, /go2rtc → http://127.0.0.1:1984, /api → :8787
 GO2RTC_URL=http://view.blizzard.net:1984 CONFIG_API_URL=http://view.blizzard.net:8787 npm run dev   # usa o Pi
+# cartões do Home Assistant em desenvolvimento: rode a ponte ao lado (/ha → http://127.0.0.1:8099)
+HA_URL=http://homeassistant.local:8123 HA_TOKEN=... BLIZZARD_CONFIG=public/config/blizzard.config.json node ha-bridge/server.mjs
 npm run build && npm run lint
 ```
 
@@ -244,7 +301,9 @@ Estrutura:
 src/lib/config.ts        tipos, validação, leitura e gravação (API) do blizzard.config.json
 server/config-api.py     API de configuração (GET/PUT /api/config) que grava o arquivo no Pi
 src/lib/player.ts        <blizzard-video>, extensão do player oficial do go2rtc (src/vendor)
-src/components/          TopBar, Sidebar, Wall, Tile, VideoTile, DashboardTile, SettingsDialog
+src/lib/ha.ts            conexão SSE com a ponte e tradução dos estados do Home Assistant
+src/components/          TopBar, Sidebar, Wall, Tile, VideoTile, HaTile, DashboardTile, SettingsDialog
+ha-bridge/               ponte do Home Assistant (token no servidor, estados por SSE)
 go2rtc/go2rtc.example.yaml  modelo dos streams (o real, go2rtc.yaml, fica fora do git)
 public/config/           configuração de fontes e visões (montada como volume no container)
 pi/                      instalação, quiosque e descoberta de câmeras (protect-streams.py, intelbras-streams.py)
@@ -260,7 +319,11 @@ pi/                      instalação, quiosque e descoberta de câmeras (protec
 - **Célula fica em "go2rtc inacessível" mas `http://view.blizzard.net:1984` abre** — o go2rtc recusa WebSocket
   quando o `Origin` do navegador não bate com o `Host` que chega a ele. O nginx deste projeto já remove o
   `Origin`; se você colocar outro proxy na frente, faça o mesmo ou defina `api.origin: "*"` no `go2rtc.yaml`.
-- **Painel do HA em branco** — falta `use_x_frame_options: false` no HA, ou a URL usa `https` com
+- **Cartão do HA em "Ponte do Home Assistant inacessível" ou "Home Assistant fora do ar"** — veja
+  `sudo docker logs blizzard-ha-bridge`: falta o `.env`, o token foi recusado ou o Pi não alcança `HA_URL`.
+  `curl http://localhost/ha/health` mostra se a ponte está conectada e quantas entidades acompanha.
+  "Sem dados" numa linha = `entity_id` errado; "Indisponível" = o próprio HA está sem o dispositivo.
+- **Painel do HA (iframe) em branco** — falta `use_x_frame_options: false` no HA, ou a URL usa `https` com
   certificado que o Chromium rejeita. Teste a URL direto no navegador do Pi.
 - **Tela escurece após alguns minutos** — rode `sudo raspi-config` → Display Options → Screen Blanking → No.
 

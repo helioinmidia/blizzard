@@ -19,6 +19,7 @@ export class VideoRTC extends HTMLElement {
   video: HTMLVideoElement
   ws: WebSocket | null
   wsURL: string
+  connectTS: number
   pc: RTCPeerConnection | null
   mseCodecs: string
   onmessage: Record<string, (msg: StreamMessage) => void> | null

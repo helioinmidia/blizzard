@@ -1,0 +1,7 @@
+node_modules
+dist
+.git
+.env
+go2rtc
+ha-bridge
+pi

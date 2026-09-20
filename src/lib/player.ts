@@ -29,10 +29,26 @@ export class BlizzardVideo extends VideoRTC {
     this.video.style.backgroundColor = '#000'
   }
 
+  /**
+   * Igual ao original, mas cada socket só responde por si. No original, o "close" atrasado de um socket
+   * já substituído (troca de stream ao ampliar, remontagem do React) zerava `this.ws` do socket novo,
+   * mostrava "go2rtc inacessível" e abria uma terceira conexão, deixando a segunda órfã.
+   */
   onconnect(): boolean {
-    const started = super.onconnect()
-    if (started) this.emit({ status: 'connecting', mode: '', error: null })
-    return started
+    if (!this.isConnected || !this.wsURL || this.ws || this.pc) return false
+    this.wsState = WebSocket.CONNECTING
+    this.connectTS = Date.now()
+    const ws = new WebSocket(this.wsURL)
+    ws.binaryType = 'arraybuffer'
+    ws.addEventListener('open', () => {
+      if (this.ws === ws) this.onopen()
+    })
+    ws.addEventListener('close', () => {
+      if (this.ws === ws) this.onclose()
+    })
+    this.ws = ws
+    this.emit({ status: 'connecting', mode: '', error: null })
+    return true
   }
 
   onopen(): string[] {

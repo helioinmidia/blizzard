@@ -3,6 +3,7 @@ import type { BlizzardConfig, Source } from '../lib/config'
 import { findGroup } from '../lib/config'
 import { VideoTile } from './VideoTile'
 import { DashboardTile } from './DashboardTile'
+import { HaTile } from './HaTile'
 import { SourceBadge } from './SourceBadge'
 
 interface Props {
@@ -28,6 +29,8 @@ export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSour
             stream={focused && source.hdStream ? source.hdStream : source.stream}
             playerMode={config.playerMode}
           />
+        ) : source.type === 'ha' ? (
+          <HaTile source={source} />
         ) : (
           <DashboardTile url={source.url} title={source.name} />
         )}

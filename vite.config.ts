@@ -5,6 +5,8 @@ import { defineConfig, type ServerOptions as ProxyOptions } from 'vite'
 // Em desenvolvimento, /go2rtc vai para um go2rtc local (porta 1984) e /api para o server/config-api.py (porta 8787).
 // Defina GO2RTC_URL para apontar a outro host, ex.: GO2RTC_URL=http://view.blizzard.net:1984 npm run dev
 const go2rtcTarget = process.env.GO2RTC_URL ?? 'http://127.0.0.1:1984'
+// /ha vai para a ponte do Home Assistant (ha-bridge/server.mjs), local ou a do Pi via HA_BRIDGE_URL.
+const haBridgeTarget = process.env.HA_BRIDGE_URL ?? 'http://127.0.0.1:8099'
 
 const configApiTarget = process.env.CONFIG_API_URL ?? 'http://127.0.0.1:8787'
 
@@ -19,6 +21,11 @@ const proxy: ProxyOptions['proxy'] = {
     // Com changeOrigin o Host vira o do go2rtc e rewriteWsOrigin faz o Origin acompanhar.
     // O nginx do container resolve o mesmo problema removendo o Origin.
     rewriteWsOrigin: true,
+  },
+  '/ha': {
+    target: haBridgeTarget,
+    changeOrigin: true,
+    rewrite: (path) => path.replace(/^\/ha/, ''),
   },
 }
 

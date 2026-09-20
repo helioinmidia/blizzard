@@ -26,7 +26,32 @@ export interface DashboardSource {
   url: string
 }
 
-export type Source = CameraSource | DashboardSource
+export interface HaEntityRef {
+  /** entity_id no Home Assistant, ex.: "sensor.term_sala_temperature". */
+  entity: string
+  /** Nome exibido. Sem ele, usa o friendly_name do Home Assistant. */
+  name?: string
+}
+
+export interface HaCard {
+  title: string
+  entities: HaEntityRef[]
+}
+
+export interface HaSource {
+  type: 'ha'
+  id: string
+  name: string
+  group: string
+  /** URL da ponte do Home Assistant vista pelo navegador. Com o nginx do projeto é "/ha". */
+  bridgeUrl: string
+  /** Multiplicador do tamanho do texto (padrão 1). Aumente se a TV fica longe; diminua se o conteúdo não couber. */
+  scale: number
+  /** Cartões de resumo (temperaturas, persianas, movimento…), cada um com suas entidades. */
+  cards: HaCard[]
+}
+
+export type Source = CameraSource | DashboardSource | HaSource
 
 export interface View {
   id: string
@@ -67,6 +92,14 @@ function expectString(value: unknown, path: string): string {
     throw new ConfigError(`"${path}" deve ser um texto não vazio.`)
   }
   return value
+}
+
+function expectEntityId(value: unknown, path: string): string {
+  const id = expectString(value, path)
+  if (!/^[a-z_]+\.[a-z0-9_]+$/.test(id)) {
+    throw new ConfigError(`"${path}" deve ser um entity_id do Home Assistant (ex.: sensor.sala_temperatura).`)
+  }
+  return id
 }
 
 function expectNumber(value: unknown, path: string, fallback: number): number {
@@ -121,6 +154,24 @@ export function parseConfig(raw: unknown): BlizzardConfig {
     if (s.type === 'dashboard') {
       return { type: 'dashboard', id, name, group, url: expectString(s.url, `sources[${i}].url`) }
     }
+    if (s.type === 'ha') {
+      const cards: HaCard[] = expectArray(s.cards, `sources[${i}].cards`).map((item, j) => {
+        const c = asRecord(item, `sources[${i}].cards[${j}]`)
+        const entities = expectArray(c.entities, `sources[${i}].cards[${j}].entities`).map((ref, k) => {
+          const path = `sources[${i}].cards[${j}].entities[${k}]`
+          if (typeof ref === 'string') return { entity: expectEntityId(ref, path) }
+          const e = asRecord(ref, path)
+          const entity: HaEntityRef = { entity: expectEntityId(e.entity, `${path}.entity`) }
+          if (e.name !== undefined) entity.name = expectString(e.name, `${path}.name`)
+          return entity
+        })
+        return { title: expectString(c.title, `sources[${i}].cards[${j}].title`), entities }
+      })
+      const bridgeUrl = typeof s.bridgeUrl === 'string' && s.bridgeUrl ? s.bridgeUrl.replace(/\/$/, '') : '/ha'
+      const scale = expectNumber(s.scale, `sources[${i}].scale`, 1)
+      if (scale < 0.5 || scale > 3) throw new ConfigError(`"sources[${i}].scale" deve ficar entre 0.5 e 3.`)
+      return { type: 'ha', id, name, group, bridgeUrl, scale, cards }
+    }
     if (s.type === 'camera' || s.type === undefined) {
       const camera: CameraSource = {
         type: 'camera',
@@ -132,7 +183,7 @@ export function parseConfig(raw: unknown): BlizzardConfig {
       if (s.hdStream !== undefined) camera.hdStream = expectString(s.hdStream, `sources[${i}].hdStream`)
       return camera
     }
-    throw new ConfigError(`"sources[${i}].type" deve ser "camera" ou "dashboard".`)
+    throw new ConfigError(`"sources[${i}].type" deve ser "camera", "dashboard" ou "ha".`)
   })
   const sourceIds = new Set(sources.map((s) => s.id))
   if (sourceIds.size !== sources.length) throw new ConfigError('Há fontes com o mesmo "id".')
