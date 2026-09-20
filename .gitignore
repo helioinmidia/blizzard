@@ -17,3 +17,10 @@ npm-debug.log*
 
 # Segredos: guarde sua cópia real do go2rtc fora do git se contiver senhas
 go2rtc/*.bak
+
+# Configuração real do go2rtc (contém senhas das câmeras). O exemplo versionado é go2rtc.example.yaml.
+go2rtc/go2rtc.yaml
+
+# Python
+__pycache__/
+*.pyc

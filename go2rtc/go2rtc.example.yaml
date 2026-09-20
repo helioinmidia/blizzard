@@ -1,4 +1,6 @@
-# Configuração do go2rtc (https://github.com/AlexxIT/go2rtc).
+# Exemplo de configuração do go2rtc (https://github.com/AlexxIT/go2rtc).
+# O arquivo usado de verdade é go2rtc/go2rtc.yaml (fora do git, porque guarda senhas): o pi/install.sh e os
+# scripts pi/*-streams.py criam esse arquivo a partir deste exemplo quando ele não existe.
 # Os nomes dos streams aqui devem bater com "stream"/"hdStream" em public/config/blizzard.config.json.
 #
 # Regra de ouro para o Raspberry Pi 4: na grade use SEMPRE o sub-stream (baixa resolução) de cada câmera.
@@ -35,17 +37,20 @@ streams:
 
   # ---------------------------------------------------------------------------
   # Intelbras (condomínio)
-  # DVR/NVR MHDX/NVD e câmeras VIP usam o padrão Dahua:
+  # Automático: ./pi/intelbras-streams.py --host 192.168.15.6 --user 'admin@greenforest' --password SENHA --apply
+  # (gera um bloco entre "# >>> intelbras" e "# <<< intelbras" logo abaixo de "streams:").
+  # Manual: DVR/NVR MHDX/NVD e câmeras VIP usam o padrão Dahua:
   #   rtsp://USUARIO:SENHA@IP:554/cam/realmonitor?channel=N&subtype=1   (subtype=1 = sub-stream)
   #   rtsp://USUARIO:SENHA@IP:554/cam/realmonitor?channel=N&subtype=0   (subtype=0 = stream principal)
   # Câmeras Mibo/iM (Wi-Fi) usam: rtsp://USUARIO:SENHA@IP:554/onvif1 (sub: /onvif2)
-  # Se a senha tiver caracteres especiais, codifique-os em URL (ex.: @ vira %40).
+  # Usuário e senha com caracteres especiais precisam de codificação de URL (@ vira %40, # vira %23…).
+  # A porta 37777 do app Intelbras é do protocolo proprietário; o RTSP usa a 554.
   # ---------------------------------------------------------------------------
-  cond_portaria: rtsp://admin:SENHA@192.168.0.100:554/cam/realmonitor?channel=1&subtype=1
-  cond_portaria_hd: rtsp://admin:SENHA@192.168.0.100:554/cam/realmonitor?channel=1&subtype=0
-  cond_portao: rtsp://admin:SENHA@192.168.0.100:554/cam/realmonitor?channel=2&subtype=1
-  cond_portao_hd: rtsp://admin:SENHA@192.168.0.100:554/cam/realmonitor?channel=2&subtype=0
-  cond_piscina: rtsp://admin:SENHA@192.168.0.100:554/cam/realmonitor?channel=3&subtype=1
+  cond_portaria: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=1&subtype=1
+  cond_portaria_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=1&subtype=0
+  cond_portao: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=2&subtype=1
+  cond_portao_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=2&subtype=0
+  cond_piscina: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=3&subtype=1
 
   # ---------------------------------------------------------------------------
   # Câmeras já cadastradas no Home Assistant (opcional)

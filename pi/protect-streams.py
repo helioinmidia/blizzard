@@ -18,6 +18,7 @@ Exemplos:
 
 Sem --apply, apenas imprime o que faria. Com --apply, grava:
   - go2rtc/go2rtc.yaml               entre os marcadores "# >>> unifi-protect" e "# <<< unifi-protect"
+                                     (criado a partir de go2rtc.example.yaml se não existir)
   - public/config/blizzard.config.json  fontes "unifi-<camera>" no grupo escolhido (--group, padrão "casa")
 """
 import argparse
@@ -27,20 +28,16 @@ import os
 import re
 import ssl
 import sys
-import unicodedata
 import urllib.error
 import urllib.parse
 import urllib.request
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from blizzard_common import CONFIG_PATH, GO2RTC_PATH, apply_config, apply_go2rtc, build_outputs  # noqa: E402
+
 RTSPS_PORT_DEFAULT = 7441
-MARK_BEGIN = "# >>> unifi-protect (gerado por pi/protect-streams.py; não edite entre os marcadores)"
-MARK_END = "# <<< unifi-protect"
-
-
-def slugify(name: str) -> str:
-    text = unicodedata.normalize("NFKD", name).encode("ascii", "ignore").decode()
-    text = re.sub(r"[^a-zA-Z0-9]+", "_", text).strip("_").lower()
-    return text or "camera"
+TAG = "unifi-protect"
+SCRIPT = "pi/protect-streams.py"
 
 
 def rtspx(url: str) -> str:
@@ -172,54 +169,6 @@ def discover_legacy(client: ProtectClient, host: str, enable: bool):
     return result
 
 
-def build_outputs(cameras, group: str, prefix: str):
-    yaml_lines = [MARK_BEGIN]
-    sources = []
-    used = set()
-    for cam in cameras:
-        base = f"{prefix}_{slugify(cam['name'])}"
-        stream = base
-        n = 2
-        while stream in used:
-            stream = f"{base}_{n}"
-            n += 1
-        used.add(stream)
-        yaml_lines.append(f"  {stream}: {cam['low']}")
-        source = {"type": "camera", "id": stream.replace("_", "-"), "name": cam["name"], "group": group, "stream": stream}
-        if cam.get("high"):
-            yaml_lines.append(f"  {stream}_hd: {cam['high']}")
-            source["hdStream"] = f"{stream}_hd"
-        sources.append(source)
-    yaml_lines.append(MARK_END)
-    return "\n".join(yaml_lines), sources
-
-
-def apply_go2rtc(path: str, block: str):
-    text = open(path, encoding="utf-8").read() if os.path.exists(path) else "streams:\n"
-    pattern = re.compile(re.escape(MARK_BEGIN) + r".*?" + re.escape(MARK_END), re.S)
-    if pattern.search(text):
-        text = pattern.sub(block, text)
-    else:
-        m = re.search(r"^streams:\s*$", text, re.M)
-        if not m:
-            raise SystemExit(f"{path} não tem uma seção 'streams:'.")
-        text = text[: m.end()] + "\n" + block + text[m.end():]
-    open(path, "w", encoding="utf-8").write(text)
-
-
-def apply_config(path: str, group: str, sources):
-    config = json.load(open(path, encoding="utf-8"))
-    groups = {g["id"] for g in config.get("groups", [])}
-    if group not in groups:
-        config.setdefault("groups", []).append({"id": group, "name": group.capitalize(), "kind": "unifi_protect"})
-    ids = {s["id"] for s in sources}
-    kept = [s for s in config.get("sources", []) if s["id"] not in ids]
-    config["sources"] = kept + sources
-    with open(path, "w", encoding="utf-8") as fh:
-        json.dump(config, fh, ensure_ascii=False, indent=2)
-        fh.write("\n")
-
-
 def main():
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("--host", help="IP ou nome do console UniFi (UDM/UNVR/Cloud Key)")
@@ -250,7 +199,7 @@ def main():
     if not cameras:
         raise SystemExit("Nenhuma câmera com stream RTSP encontrada.")
 
-    block, sources = build_outputs(cameras, args.group, args.prefix)
+    block, sources = build_outputs(cameras, args.group, args.prefix, TAG, SCRIPT)
     print(f"\n{len(cameras)} câmera(s):", file=sys.stderr)
     for cam in cameras:
         print(f"  - {cam['name']}", file=sys.stderr)
@@ -263,11 +212,10 @@ def main():
         print("\nRode de novo com --apply para gravar nos arquivos.", file=sys.stderr)
         return
 
-    repo = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-    go2rtc_path = args.go2rtc or os.path.join(repo, "go2rtc", "go2rtc.yaml")
-    config_path = args.config or os.path.join(repo, "public", "config", "blizzard.config.json")
-    apply_go2rtc(go2rtc_path, block)
-    apply_config(config_path, args.group, sources)
+    go2rtc_path = args.go2rtc or GO2RTC_PATH
+    config_path = args.config or CONFIG_PATH
+    apply_go2rtc(go2rtc_path, block, TAG, SCRIPT)
+    apply_config(config_path, args.group, "Casa", "unifi_protect", sources, args.prefix)
     print(f"\nGravado em {go2rtc_path} e {config_path}.", file=sys.stderr)
     print("Reinicie o go2rtc: sudo docker compose restart go2rtc", file=sys.stderr)
     print("Depois coloque as fontes nas visões (slots) do blizzard.config.json ou troque na própria tela.", file=sys.stderr)

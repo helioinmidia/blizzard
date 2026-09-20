@@ -34,12 +34,12 @@ de preferência por cabo. Câmeras, Pi e Home Assistant na mesma rede local.
 ```bash
 git clone https://github.com/helioinmidia/blizzard.git ~/blizzard
 cd ~/blizzard
-cp go2rtc/go2rtc.yaml go2rtc/go2rtc.yaml.bak   # o arquivo já vem como exemplo; edite-o
-nano go2rtc/go2rtc.yaml                          # URLs reais das câmeras (ver abaixo)
-nano public/config/blizzard.config.json          # fontes e visões
 ./pi/install.sh
 sudo reboot
 ```
+
+O `go2rtc/go2rtc.yaml` (fora do git, porque guarda senhas) é criado a partir de `go2rtc.example.yaml`.
+Depois do primeiro boot, gere os streams reais com os scripts da seção seguinte, ou edite o arquivo à mão.
 
 O script instala Docker e Chromium, sobe os containers, cria o autostart do quiosque, desliga o
 descanso de tela, ativa o login automático no desktop e define o hostname do Pi como
@@ -109,16 +109,39 @@ casa_garagem_hd: rtspx://192.168.1.1:7441/TOKEN_HIGH
 "High resolution channel" e "Low resolution channel": ligá-los equivale a ativar o RTSP no Protect.
 As URLs, porém, continuam vindo do Protect (ou do script acima); o HA não as mostra.
 
-**Intelbras.** DVR/NVR (MHDX, NVD) e câmeras VIP seguem o padrão Dahua; câmeras Mibo/iM usam `/onvif1`:
+**Intelbras, automático (recomendado).** O script `pi/intelbras-streams.py` consulta o gravador
+(DVR/NVR MHDX, NVD ou câmera VIP) pela API HTTP padrão Dahua/Intelbras, lê o nome e o codec de cada
+canal e gera os streams RTSP (sub-stream para a grade, principal para ampliar). Use o mesmo usuário e
+senha cadastrados no app Intelbras; a porta 37777 do app é do protocolo proprietário e não é usada
+aqui (a API usa a 80 e o vídeo a 554).
+
+```bash
+./pi/intelbras-streams.py --host 192.168.15.6 --user 'admin@greenforest' --password 'SENHA'          # só mostra
+./pi/intelbras-streams.py --host 192.168.15.6 --user 'admin@greenforest' --password 'SENHA' --apply  # grava
+sudo docker compose restart go2rtc
+```
+
+As fontes entram no grupo `condominio` com IDs `cond-<nome-do-canal>`, substituindo as de exemplo.
+O script avisa canais em H.265 (o Chromium do Pi não decodifica; mude para H.264 no gravador) e
+canais com sub-stream desligado. Se a API HTTP do gravador estiver bloqueada, `--channels N` gera N
+canais numerados sem consultá-la.
+
+**Intelbras, manual.** DVR/NVR e câmeras VIP seguem o padrão Dahua; câmeras Mibo/iM usam `/onvif1`.
+Usuário e senha com caracteres especiais precisam de codificação de URL (`@` vira `%40`):
 
 ```yaml
-cond_portaria: rtsp://admin:SENHA@192.168.0.100:554/cam/realmonitor?channel=1&subtype=1   # sub-stream
-cond_portaria_hd: rtsp://admin:SENHA@192.168.0.100:554/cam/realmonitor?channel=1&subtype=0
+cond_portaria: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=1&subtype=1   # sub-stream
+cond_portaria_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=1&subtype=0
 mibo_sala: rtsp://admin:SENHA@192.168.0.120:554/onvif1
 ```
 
 Se o condomínio só libera acesso ao gravador por um app ou pela nuvem, peça à administração um
 usuário somente-leitura com RTSP habilitado; sem RTSP/ONVIF na rede não há como exibir as câmeras.
+
+**Rede.** O Pi precisa alcançar o gravador diretamente. Se ele está em outra sub-rede (ex.: gravador
+em `192.168.15.x` e Pi em `192.168.155.x`), teste do Pi com `curl -m 5 http://192.168.15.6/` e
+`nc -vz 192.168.15.6 554`; sem rota entre as redes, é preciso VPN, uma segunda interface de rede no Pi
+ligada à rede do condomínio, ou uma regra de roteamento no UniFi.
 
 Depois de editar: `sudo docker compose restart go2rtc`. O painel do go2rtc em `http://videowall.blizzard.net:1984`
 mostra cada stream e permite testá-lo antes de colocar na grade.
@@ -215,9 +238,9 @@ Estrutura:
 src/lib/config.ts        tipos, validação e carregamento do blizzard.config.json
 src/lib/player.ts        <blizzard-video>, extensão do player oficial do go2rtc (src/vendor)
 src/components/          TopBar, Sidebar, Wall, Tile, VideoTile, DashboardTile, SettingsDialog
-go2rtc/go2rtc.yaml       streams das câmeras
+go2rtc/go2rtc.example.yaml  modelo dos streams (o real, go2rtc.yaml, fica fora do git)
 public/config/           configuração de fontes e visões (montada como volume no container)
-pi/                      instalação, quiosque e descoberta de câmeras do Protect (protect-streams.py)
+pi/                      instalação, quiosque e descoberta de câmeras (protect-streams.py, intelbras-streams.py)
 ```
 
 ## Solução de problemas

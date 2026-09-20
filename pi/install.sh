@@ -44,8 +44,8 @@ sudo usermod -aG docker "$USER_NAME"
 sudo systemctl enable --now docker
 
 if [ ! -f "$REPO_DIR/go2rtc/go2rtc.yaml" ]; then
-  echo "Falta go2rtc/go2rtc.yaml. Crie a partir do exemplo do repositório." >&2
-  exit 1
+  echo "==> Criando go2rtc/go2rtc.yaml a partir do exemplo (edite-o com as câmeras reais)"
+  cp "$REPO_DIR/go2rtc/go2rtc.example.yaml" "$REPO_DIR/go2rtc/go2rtc.yaml"
 fi
 
 echo "==> Subindo containers (primeira build pode levar alguns minutos no Pi)"
