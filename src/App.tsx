@@ -25,7 +25,8 @@ const SPOTLIGHT_VIEW_ID = '__spotlight'
 
 export default function App() {
   const [loaded, setLoaded] = useState<LoadedConfig>({ config: emptyConfig, origin: 'empty', error: null })
-  const [activeViewId, setActiveViewId] = useState<string | null>(null)
+  // ?view=<id> abre direto numa visão (uma segunda TV, ou um link para a visão do Home Assistant).
+  const [activeViewId, setActiveViewId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('view'))
   /** Fonte ampliada a partir do painel lateral; não faz parte da configuração salva. */
   const [spotlightSource, setSpotlightSource] = useState<string | null>(null)
   const [focusedSlot, setFocusedSlot] = useState<number | null>(null)

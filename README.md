@@ -266,6 +266,7 @@ sessão. Para esconder cabeçalho e barra lateral do HA, instale o
 | Tecla | Ação |
 | --- | --- |
 | `1`–`9` | Troca de visão |
+| `?view=<id>` na URL | Abre direto numa visão, ex.: `http://view.blizzard.net/?view=home-assistant` |
 | `R` | Liga/desliga o rodízio automático |
 | `F` | Tela cheia do navegador |
 | `S` | Painel lateral com todas as fontes (clique amplia) |
