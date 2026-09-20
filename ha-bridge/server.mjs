@@ -43,6 +43,10 @@ let connected = false
 let socket = null
 let reconnectTimer = null
 let reconnectDelay = 1000
+let failedAttempts = 0
+let lastActivity = 0
+let authenticated = false
+let nextId = 2
 
 function readEntityIds() {
   try {
@@ -122,12 +126,35 @@ function scheduleReconnect() {
   reconnectDelay = Math.min(reconnectDelay * 2, 30_000)
 }
 
+/** Descarta o socket atual (se houver) e agenda nova tentativa. Pode ser chamada várias vezes sem efeito colateral. */
+function dropSocket(reason) {
+  const ws = socket
+  socket = null
+  if (ws) {
+    ws.onopen = ws.onmessage = ws.onerror = ws.onclose = null
+    try {
+      ws.close()
+    } catch {
+      // socket já encerrado
+    }
+  }
+  if (connected) log(`Conexão com o Home Assistant caiu (${reason}); tentando de novo.`)
+  else if (++failedAttempts % 10 === 0) log(`Ainda sem conexão com o Home Assistant (${reason}); ${failedAttempts} tentativas.`)
+  setConnected(false)
+  scheduleReconnect()
+}
+
 function connect() {
   if (!HA_URL || !HA_TOKEN) return
   if (socket) {
-    socket.onclose = null
-    socket.close()
+    const old = socket
     socket = null
+    old.onopen = old.onmessage = old.onerror = old.onclose = null
+    try {
+      old.close()
+    } catch {
+      // socket já encerrado
+    }
   }
   if (entityIds.length === 0) {
     log('Nenhuma entidade configurada em fontes "ha"; aguardando mudança na configuração.')
@@ -136,11 +163,22 @@ function connect() {
     return
   }
 
-  const ws = new WebSocket(`${HA_URL.replace(/^http/, 'ws')}/api/websocket`)
+  let ws
+  try {
+    ws = new WebSocket(`${HA_URL.replace(/^http/, 'ws')}/api/websocket`)
+  } catch (err) {
+    log(`HA_URL inválida: ${err.message}`)
+    return
+  }
   socket = ws
+  lastActivity = Date.now()
+  authenticated = false
+  nextId = 2
   let first = true
 
   ws.onmessage = (message) => {
+    if (socket !== ws) return
+    lastActivity = Date.now()
     let msg
     try {
       msg = JSON.parse(message.data)
@@ -152,10 +190,12 @@ function connect() {
     } else if (msg.type === 'auth_invalid') {
       log('Home Assistant recusou o token (auth_invalid). Confira HA_TOKEN no .env.')
       reconnectDelay = 30_000
-      ws.close()
+      dropSocket('token recusado')
     } else if (msg.type === 'auth_ok') {
       log(`Conectado ao Home Assistant ${msg.ha_version ?? ''}; acompanhando ${entityIds.length} entidades.`)
       reconnectDelay = 1000
+      failedAttempts = 0
+      authenticated = true
       ws.send(JSON.stringify({ id: 1, type: 'subscribe_entities', entity_ids: entityIds }))
     } else if (msg.type === 'result' && msg.success === false) {
       log(`Home Assistant devolveu erro: ${msg.error?.message ?? 'desconhecido'}`)
@@ -172,15 +212,32 @@ function connect() {
       for (const [id, state] of applyEntitiesEvent(msg.event)) broadcast('state', { entity_id: id, state })
     }
   }
-  ws.onerror = () => {}
+  // Conexão recusada (HA reiniciando) chega como "error", nem sempre seguida de "close": os dois reconectam.
+  ws.onerror = () => {
+    if (socket === ws) dropSocket('erro de conexão')
+  }
   ws.onclose = () => {
-    if (socket !== ws) return
-    socket = null
-    if (connected) log('Conexão com o Home Assistant caiu; tentando de novo.')
-    setConnected(false)
-    scheduleReconnect()
+    if (socket === ws) dropSocket('conexão fechada')
   }
 }
+
+// Cão de guarda (a cada 5 s). O "ping" do HA mantém lastActivity em dia; 45 s de silêncio (HA travado, cabo,
+// VLAN trocada: nada disso fecha o TCP) derrubam o socket. E, se por qualquer motivo não houver socket nem
+// tentativa agendada, reconecta.
+setInterval(() => {
+  if (!HA_URL || !HA_TOKEN || entityIds.length === 0) return
+  if (!socket) {
+    if (!reconnectTimer) connect()
+    return
+  }
+  // Aperto de mão parado (conectou mas o HA não fala) cai em 10 s; conexão já autenticada, em 45 s.
+  const limit = authenticated ? 45_000 : 10_000
+  if (Date.now() - lastActivity > limit) {
+    dropSocket(`sem resposta há ${limit / 1000} s`)
+  } else if (authenticated && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify({ id: nextId++, type: 'ping' }))
+  }
+}, 5_000)
 
 function reloadConfig() {
   const ids = readEntityIds()
