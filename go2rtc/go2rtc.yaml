@@ -20,7 +20,9 @@ rtsp:
 streams:
   # ---------------------------------------------------------------------------
   # UniFi Protect (casa)
-  # No app/console Protect: Câmera > Configurações > Avançado > habilite os RTSP streams
+  # Automático: ./pi/protect-streams.py --host IP_DO_CONSOLE --api-key CHAVE --apply
+  # (gera um bloco entre "# >>> unifi-protect" e "# <<< unifi-protect" logo abaixo de "streams:").
+  # Manual: no app/console Protect: Câmera > Configurações > Avançado > habilite os RTSP streams
   # (Low para a grade, High para ampliar) e copie as URLs "rtsps://IP:7441/TOKEN?enableSrtp".
   # No go2rtc use o esquema rtspx:// (RTSPS sem SRTP e sem validar certificado), sem o "?enableSrtp".
   # ---------------------------------------------------------------------------

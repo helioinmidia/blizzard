@@ -74,14 +74,40 @@ cd ~/blizzard && git pull && sudo docker compose up -d --build
 Cada câmera vira um stream nomeado. Use **dois** por câmera quando possível: o sub-stream (baixa
 resolução) para a grade e o principal para quando a célula é ampliada.
 
-**UniFi Protect.** No console Protect: Câmera → Configurações → Avançado → *RTSP*: ative os streams
-*Low* e *High* e copie as URLs (`rtsps://IP:7441/TOKEN?enableSrtp`). No go2rtc troque o esquema para
-`rtspx://` e remova o `?enableSrtp`:
+**UniFi Protect, automático (recomendado).** O script `pi/protect-streams.py` consulta a API do Protect
+pela rede local, cria os streams RTSPS de cada câmera (Low para a grade, High para ampliar) e grava
+tudo no `go2rtc.yaml` e no `blizzard.config.json`. Primeiro gere uma chave de API no Protect:
+*Configurações → Control Plane → Integrations → Create API Key*. Depois, no Pi:
+
+```bash
+cd ~/blizzard
+./pi/protect-streams.py --host 192.168.155.1 --api-key SUA_CHAVE          # só mostra
+./pi/protect-streams.py --host 192.168.155.1 --api-key SUA_CHAVE --apply  # grava
+sudo docker compose restart go2rtc
+```
+
+`--host` é o IP do console UniFi (UDM, UNVR ou Cloud Key). As fontes entram no grupo `casa` com IDs
+`unifi-<nome-da-camera>`; coloque-as nos `slots` das visões (ou troque direto na tela). Pode rodar de
+novo quando adicionar câmeras: ele substitui só o bloco entre os marcadores `# >>> unifi-protect` e
+`# <<< unifi-protect`. Se o seu Protect não tiver chaves de API, use um usuário **local** do UniFi OS
+(*Configurações → Admins*, com acesso ao Protect; contas Ubiquiti com 2FA não servem):
+
+```bash
+./pi/protect-streams.py --host 192.168.155.1 --user blizzard --password 'SENHA' --enable --apply
+```
+
+**UniFi Protect, manual.** No console Protect: Câmera → Configurações → Avançado → *RTSP*: ative os
+streams *Low* e *High* e copie as URLs (`rtsps://IP:7441/TOKEN?enableSrtp`). No go2rtc troque o esquema
+para `rtspx://` e remova o `?enableSrtp`:
 
 ```yaml
 casa_garagem: rtspx://192.168.1.1:7441/TOKEN_LOW
 casa_garagem_hd: rtspx://192.168.1.1:7441/TOKEN_HIGH
 ```
+
+**Home Assistant como atalho.** A integração UniFi Protect do HA expõe, por câmera, os interruptores
+"High resolution channel" e "Low resolution channel": ligá-los equivale a ativar o RTSP no Protect.
+As URLs, porém, continuam vindo do Protect (ou do script acima); o HA não as mostra.
 
 **Intelbras.** DVR/NVR (MHDX, NVD) e câmeras VIP seguem o padrão Dahua; câmeras Mibo/iM usam `/onvif1`:
 
@@ -191,7 +217,7 @@ src/lib/player.ts        <blizzard-video>, extensão do player oficial do go2rtc
 src/components/          TopBar, Sidebar, Wall, Tile, VideoTile, DashboardTile, SettingsDialog
 go2rtc/go2rtc.yaml       streams das câmeras
 public/config/           configuração de fontes e visões (montada como volume no container)
-pi/                      instalação e quiosque do Raspberry Pi
+pi/                      instalação, quiosque e descoberta de câmeras do Protect (protect-streams.py)
 ```
 
 ## Solução de problemas
