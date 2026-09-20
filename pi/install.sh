@@ -48,6 +48,9 @@ if [ ! -f "$REPO_DIR/go2rtc/go2rtc.yaml" ]; then
   cp "$REPO_DIR/go2rtc/go2rtc.example.yaml" "$REPO_DIR/go2rtc/go2rtc.yaml"
 fi
 
+# A API de configuração grava public/config/blizzard.config.json com o seu usuário (não como root).
+printf 'BLIZZARD_UID=%s\nBLIZZARD_GID=%s\n' "$(id -u "$USER_NAME")" "$(id -g "$USER_NAME")" > "$REPO_DIR/.env"
+
 echo "==> Subindo containers (primeira build pode levar alguns minutos no Pi)"
 sudo docker compose -f "$REPO_DIR/docker-compose.yml" up -d --build
 

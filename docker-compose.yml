@@ -13,6 +13,24 @@ services:
     environment:
       - TZ=America/Sao_Paulo
 
+  # API que persiste a configuração no servidor (a tela salva aqui, nunca no navegador).
+  config-api:
+    image: python:3.12-alpine
+    container_name: blizzard-config-api
+    restart: unless-stopped
+    network_mode: host
+    # Mesmo usuário do dono do repositório, para o arquivo continuar editável fora do container.
+    user: "${BLIZZARD_UID:-1000}:${BLIZZARD_GID:-1000}"
+    command: ["python", "/app/config-api.py"]
+    volumes:
+      - ./server:/app:ro
+      - ./public/config:/data
+    environment:
+      - CONFIG_PATH=/data/blizzard.config.json
+      - PORT=8787
+      - BIND=127.0.0.1
+      - TZ=America/Sao_Paulo
+
   web:
     build: .
     image: blizzard-web:local
@@ -24,5 +42,6 @@ services:
       - ./public/config:/usr/share/nginx/html/config:ro
     depends_on:
       - go2rtc
+      - config-api
     environment:
       - TZ=America/Sao_Paulo

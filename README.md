@@ -21,7 +21,8 @@ Home Assistant (iframe) ─┘              ▲
 | Peça | Função |
 | --- | --- |
 | [go2rtc](https://github.com/AlexxIT/go2rtc) | Recebe RTSP/RTSPS das câmeras e entrega ao navegador via WebRTC (ou MSE/HLS como fallback), sem transcodificar. |
-| Blizzard web | Aplicação React (este repositório) servida por nginx, que também faz proxy de `/go2rtc` para o go2rtc. |
+| Blizzard web | Aplicação React (este repositório) servida por nginx, que também faz proxy de `/go2rtc` para o go2rtc e de `/api` para a API de configuração. |
+| API de configuração | `server/config-api.py` (Python, sem dependências): lê e grava `public/config/blizzard.config.json`. Toda alteração feita na tela é salva aqui, nunca no navegador. |
 | Chromium em quiosque | Abre `http://localhost/` em tela cheia no boot do Pi. |
 
 Tudo sobe com `docker compose` e reinicia sozinho após queda de energia.
@@ -171,8 +172,12 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
 
 - `kind` aceita `unifi_protect`, `intelbras`, `home_assistant` ou `other` (só muda a etiqueta).
 - `slots` lista os IDs das fontes linha a linha; `null` deixa a célula vazia.
-- A tecla **C** abre um editor do JSON na própria tela. Salvar ali grava uma cópia só naquele
-  navegador (útil para testar); "Voltar ao arquivo do servidor" descarta.
+- **Tudo é salvo no servidor.** Trocar a fonte de uma célula pelo seletor, ou salvar no editor da
+  tecla **C**, grava o arquivo no Pi pela API (`PUT /api/config`, com validação). Cada tela aberta
+  (TV, laptop, celular) confere o servidor a cada 10 s e aplica a mudança sozinha. Nada fica no
+  navegador. Editar o arquivo à mão ou com os scripts `pi/*-streams.py` tem o mesmo efeito.
+- O arquivo é gravado com o usuário dono do repositório (o `pi/install.sh` registra o UID em `.env`),
+  então continua editável fora do container.
 
 ### 3. Home Assistant dentro do iframe
 
@@ -227,15 +232,17 @@ O Chromium do Pi decodifica vídeo por software. Regras práticas:
 
 ```bash
 npm install
-npm run dev            # http://localhost:5173, /go2rtc → http://127.0.0.1:1984
-GO2RTC_URL=http://videowall.blizzard.net:1984 npm run dev   # usa o go2rtc que já roda no Pi
+python3 server/config-api.py &                 # API de configuração em http://127.0.0.1:8787
+npm run dev            # http://localhost:5173, /go2rtc → http://127.0.0.1:1984, /api → :8787
+GO2RTC_URL=http://videowall.blizzard.net:1984 CONFIG_API_URL=http://videowall.blizzard.net:8787 npm run dev   # usa o Pi
 npm run build && npm run lint
 ```
 
 Estrutura:
 
 ```
-src/lib/config.ts        tipos, validação e carregamento do blizzard.config.json
+src/lib/config.ts        tipos, validação, leitura e gravação (API) do blizzard.config.json
+server/config-api.py     API de configuração (GET/PUT /api/config) que grava o arquivo no Pi
 src/lib/player.ts        <blizzard-video>, extensão do player oficial do go2rtc (src/vendor)
 src/components/          TopBar, Sidebar, Wall, Tile, VideoTile, DashboardTile, SettingsDialog
 go2rtc/go2rtc.example.yaml  modelo dos streams (o real, go2rtc.yaml, fica fora do git)

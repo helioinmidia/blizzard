@@ -24,3 +24,6 @@ go2rtc/go2rtc.yaml
 # Python
 __pycache__/
 *.pyc
+
+# Gerado pelo pi/install.sh (uid/gid para o docker compose)
+.env

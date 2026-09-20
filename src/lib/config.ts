@@ -50,7 +50,6 @@ export interface BlizzardConfig {
 }
 
 export const CONFIG_URL = '/config/blizzard.config.json'
-export const CONFIG_STORAGE_KEY = 'blizzard.config.override'
 
 export const emptyConfig: BlizzardConfig = {
   go2rtcUrl: '/go2rtc',
@@ -179,35 +178,47 @@ export function parseConfig(raw: unknown): BlizzardConfig {
 
 export interface LoadedConfig {
   config: BlizzardConfig
-  /** "file" = veio de /config/blizzard.config.json; "local" = sobrescrita salva neste navegador. */
-  origin: 'file' | 'local' | 'empty'
+  /** "api" = servidor (gravável); "file" = arquivo estático (somente leitura); "empty" = nada carregado. */
+  origin: 'api' | 'file' | 'empty'
   error: string | null
 }
 
-export function readLocalOverride(): string | null {
+export const CONFIG_API = '/api/config'
+const LEGACY_STORAGE_KEY = 'blizzard.config.override'
+
+/** Remove sobrescritas antigas guardadas no navegador: a configuração agora vive só no servidor. */
+function dropLegacyLocalOverride(): void {
   try {
-    return window.localStorage.getItem(CONFIG_STORAGE_KEY)
+    window.localStorage.removeItem(LEGACY_STORAGE_KEY)
   } catch {
-    return null
+    // sem localStorage: nada a limpar
   }
 }
 
-export function writeLocalOverride(json: string | null): void {
+async function readErrorMessage(response: Response): Promise<string> {
   try {
-    if (json === null) window.localStorage.removeItem(CONFIG_STORAGE_KEY)
-    else window.localStorage.setItem(CONFIG_STORAGE_KEY, json)
+    const body = (await response.json()) as { error?: string }
+    if (body && typeof body.error === 'string') return body.error
   } catch {
-    // armazenamento indisponível (modo privado, quiosque restrito): segue sem persistir
+    // corpo não é JSON
   }
+  return `HTTP ${response.status}`
 }
 
+/** Lê a configuração do servidor; sem a API (ex.: servidor estático), cai para o arquivo somente leitura. */
 export async function loadConfig(): Promise<LoadedConfig> {
-  const local = readLocalOverride()
-  if (local !== null) {
-    try {
-      return { config: parseConfig(JSON.parse(local)), origin: 'local', error: null }
-    } catch (err) {
-      return { config: emptyConfig, origin: 'local', error: describeError(err) }
+  dropLegacyLocalOverride()
+  try {
+    const response = await fetch(CONFIG_API, { cache: 'no-store' })
+    if (response.ok) {
+      return { config: parseConfig(await response.json()), origin: 'api', error: null }
+    }
+    if (response.status !== 404 && response.status !== 502 && response.status !== 503) {
+      return { config: emptyConfig, origin: 'empty', error: `Servidor de configuração: ${await readErrorMessage(response)}` }
+    }
+  } catch (err) {
+    if (err instanceof ConfigError || err instanceof SyntaxError) {
+      return { config: emptyConfig, origin: 'api', error: describeError(err) }
     }
   }
   try {
@@ -219,6 +230,25 @@ export async function loadConfig(): Promise<LoadedConfig> {
   } catch (err) {
     return { config: emptyConfig, origin: 'empty', error: describeError(err) }
   }
+}
+
+/** Grava a configuração no servidor. Lança Error com mensagem legível em caso de falha. */
+export async function saveConfig(config: BlizzardConfig): Promise<BlizzardConfig> {
+  const normalized = parseConfig(config)
+  const response = await fetch(CONFIG_API, {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(normalized, null, 2),
+  })
+  if (!response.ok) {
+    throw new Error(`Não foi possível salvar no servidor: ${await readErrorMessage(response)}`)
+  }
+  return parseConfig(await response.json())
+}
+
+/** Texto canônico para comparar duas configurações. */
+export function serializeConfig(config: BlizzardConfig): string {
+  return JSON.stringify(config)
 }
 
 export function describeError(err: unknown): string {
