@@ -113,22 +113,49 @@ casa_garagem_hd: rtspx://192.168.1.1:7441/TOKEN_HIGH
 "High resolution channel" e "Low resolution channel": ligá-los equivale a ativar o RTSP no Protect.
 As URLs, porém, continuam vindo do Protect (ou do script acima); o HA não as mostra.
 
-**Intelbras, automático (recomendado).** O script `pi/intelbras-streams.py` consulta o gravador
-(DVR/NVR MHDX, NVD ou câmera VIP) pela API HTTP padrão Dahua/Intelbras, lê o nome e o codec de cada
-canal e gera os streams RTSP (sub-stream para a grade, principal para ampliar). Use o mesmo usuário e
-senha cadastrados no app Intelbras; a porta 37777 do app é do protocolo proprietário e não é usada
-aqui (a API usa a 80 e o vídeo a 554).
+**Intelbras, automático (recomendado).** O script `pi/intelbras-streams.py` gera os streams RTSP do
+gravador (DVR/NVR MHDX, NVD) ou câmera VIP: sub-stream para a grade, principal para ampliar. Ele sonda
+cada canal por RTSP e resolve sozinho o que o Pi não toca: sub-stream em H.265 passa pelo template
+`h264/pi` (~20% de um núcleo enquanto estiver na tela) e principal em H.265 não é usado ao ampliar.
+A porta 37777 do app é do protocolo proprietário e não é usada aqui (o vídeo usa a 554). A senha nunca vai
+na linha de comando: o script pergunta (ou lê `INTELBRAS_PASSWORD`).
+
+*Gravador em outra rede (ex.: a do condomínio), com a porta RTSP encaminhada no modem de lá:*
 
 ```bash
-./pi/intelbras-streams.py --host 192.168.15.6 --user 'admin@greenforest' --password 'SENHA'          # só mostra
-./pi/intelbras-streams.py --host 192.168.15.6 --user 'admin@greenforest' --password 'SENHA' --apply  # grava
-sudo docker compose restart go2rtc
+./pi/intelbras-streams.py --host ENDERECO_PUBLICO --rtsp-port PORTA_EXTERNA --user blizzard --channels 16 --check
+./pi/intelbras-streams.py --host ENDERECO_PUBLICO --rtsp-port PORTA_EXTERNA --user blizzard --channels 16 --apply
+docker compose restart go2rtc
 ```
 
-As fontes entram no grupo `condominio` com IDs `cond-<nome-do-canal>`, substituindo as de exemplo.
-O script avisa canais em H.265 (o Chromium do Pi não decodifica; mude para H.264 no gravador) e
-canais com sub-stream desligado. Se a API HTTP do gravador estiver bloqueada, `--channels N` gera N
-canais numerados sem consultá-la.
+`--check` só testa e diz o que está errado (nome não resolve, porta fechada, porta que não fala RTSP,
+senha recusada, codec de cada canal). `--channels N` é o número de canais do gravador, porque a API HTTP
+(que daria os nomes) não fica exposta; canais que não responderem ficam de fora e `--only 1,2,5` escolhe
+alguns. Depois dê os nomes reais em `name` no `blizzard.config.json` (os `id` não mudam).
+
+O que pedir a quem administra o gravador e o modem:
+
+1. **Um usuário só para a central** (ex.: `blizzard`), no grupo de usuários comuns, com permissão apenas de
+   *visualização ao vivo* dos canais desejados. Nunca o `admin`: essa senha fica no `go2rtc.yaml` do Pi e
+   qualquer um na sua rede local consegue ver os streams servidos pelo go2rtc.
+2. **Encaminhamento de porta só do RTSP**: porta externa alta e incomum (ex.: 5554) → IP do gravador, porta
+   554, TCP. Não encaminhe a 80 (painel web) nem a 37777.
+3. **Restringir a origem** ao seu IP público, se o modem permitir (`curl -s ifconfig.me` no Pi mostra qual é).
+   RTSP não é criptografado: usuário só de visualização + origem restrita é o que mantém isso aceitável.
+4. **IP fixo para o gravador** na rede dele (reserva de DHCP) e, se o IP público de lá mudar, um DDNS
+   (o próprio gravador oferece o DDNS Intelbras em Rede → DDNS).
+5. No gravador, **sub-stream em H.264**, resolução baixa (CIF/D1) e 10–15 fps: custo zero de CPU no Pi e
+   pouca banda no link do condomínio (cada célula na tela é um stream contínuo pela internet).
+
+*Gravador na mesma rede do Pi:* a API HTTP (porta 80) dá os nomes dos canais.
+
+```bash
+./pi/intelbras-streams.py --host 192.168.15.6 --user blizzard --apply
+docker compose restart go2rtc
+```
+
+As fontes entram no grupo `condominio` com IDs `cond-<nome-do-canal>`, substituindo as de exemplo, e, se a
+visão `condominio` não existir ou estiver vazia, já são colocadas nela (a grade se ajusta à quantidade).
 
 **Intelbras, manual.** DVR/NVR e câmeras VIP seguem o padrão Dahua; câmeras Mibo/iM usam `/onvif1`.
 Usuário e senha com caracteres especiais precisam de codificação de URL (`@` vira `%40`):
