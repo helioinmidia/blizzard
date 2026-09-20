@@ -55,9 +55,9 @@ Primeiro fixe o IP do Pi com uma reserva de DHCP no roteador. Depois escolha uma
 - **DNS do roteador**: muitos roteadores (UniFi, Mikrotik, OpenWrt) têm "DNS local" ou "Static DNS
   entries". Crie `view.blizzard.net` → IP do Pi.
 - **Pi-hole / AdGuard Home**: em *Local DNS records*, o mesmo registro.
-- **Você é dono de `blizzard.net`**: crie um registro `A` para `videowall` com o IP local do Pi
-  (ex.: 192.168.1.50) na zona pública. Funciona em casa e ninguém de fora alcança o IP privado.
-- **Só o laptop**: adicione `192.168.1.50 view.blizzard.net` ao `/etc/hosts`
+- **Você é dono de `blizzard.net`**: crie um registro `A` para `view` com o IP local do Pi
+  (ex.: 10.255.200.100) na zona pública. Funciona em casa e ninguém de fora alcança o IP privado.
+- **Só o laptop**: adicione `10.255.200.100 view.blizzard.net` ao `/etc/hosts`
   (`C:\Windows\System32\drivers\etc\hosts` no Windows).
 
 O quiosque na TV não depende disso: ele abre `http://localhost/`.
