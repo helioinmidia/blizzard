@@ -40,6 +40,11 @@ TAG = "unifi-protect"
 SCRIPT = "pi/protect-streams.py"
 
 
+def natural_key(name: str):
+    """Ordena por nome tratando números como números: BLZCAM02 antes de BLZCAM10."""
+    return [int(part) if part.isdigit() else part.lower() for part in re.split(r"(\d+)", name)]
+
+
 def rtspx(url: str) -> str:
     """rtsps://host:7441/ALIAS?enableSrtp  ->  rtspx://host:7441/ALIAS (forma que o go2rtc usa)."""
     url = re.sub(r"^rtsps?://", "rtspx://", url)
@@ -198,6 +203,7 @@ def main():
     cameras = discover_v1(client) if args.api_key else discover_legacy(client, host, args.enable)
     if not cameras:
         raise SystemExit("Nenhuma câmera com stream RTSP encontrada.")
+    cameras.sort(key=lambda cam: natural_key(cam["name"]))
 
     block, sources = build_outputs(cameras, args.group, args.prefix, TAG, SCRIPT)
     print(f"\n{len(cameras)} câmera(s):", file=sys.stderr)
