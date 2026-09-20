@@ -37,7 +37,7 @@ exec "$BROWSER" \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
-  --disable-features=TranslateUI \
+  --disable-features=Translate,TranslateUI \
   --autoplay-policy=no-user-gesture-required \
   --check-for-update-interval=31536000 \
   --overscroll-history-navigation=0 \

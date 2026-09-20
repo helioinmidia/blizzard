@@ -278,8 +278,15 @@ Após 15 s sem mouse/teclado a interface some e fica só o vídeo.
 O Chromium do Pi decodifica vídeo por software. Regras práticas:
 
 - Na grade, use sempre o sub-stream das câmeras (≈640×360, ≤15 fps). 4 a 6 células rodam bem; 9 é o limite.
-- H.264 é o codec seguro. H.265/HEVC não toca no Chromium do Pi; mude a câmera para H.264 ou deixe
-  o go2rtc transcodificar apenas esse stream (`ffmpeg:...#video=h264`), com custo de CPU.
+- H.264 é o codec seguro. **H.265/HEVC não toca no Chromium do Pi** (a célula mostra "codecs not matched:
+  video:H265"). É o caso do UniFi Protect com *Enhanced encoding* ligado. Duas saídas:
+  - **Na câmera (melhor):** Protect → câmera → Configurações → Gravação → *Encoding* **Standard (H.264)**.
+    Custo zero no Pi e o stream High volta a funcionar ao ampliar; as gravações ocupam mais disco.
+  - **No Pi:** `./pi/protect-streams.py ... --h264 --apply`. O stream Low passa pelo encoder H.264 por
+    hardware do Pi 4 (template `h264/pi` do `go2rtc.yaml`, 640×360 a 15 fps, ~13% de um núcleo por câmera).
+    O High (4 MP em H.265) fica sem uso: o Pi não consegue convertê-lo em tempo real, então a célula
+    ampliada mostra o mesmo stream da grade. Requer o `docker-compose.override.yml` que o `install.sh`
+    cria a partir de `docker-compose.pi.yml` (dá `/dev/video11` ao container).
 - Prefira cabo de rede. Wi-Fi funciona, mas várias câmeras simultâneas sofrem com perda de pacotes.
 - Um dissipador ou cooler evita *throttling* com muitas células.
 
@@ -314,6 +321,7 @@ pi/                      instalação, quiosque e descoberta de câmeras (protec
 - **"Sem sinal" numa célula** — abra `http://view.blizzard.net:1984`, clique no stream e veja o erro do go2rtc
   (senha errada, câmera fora, codec H.265). O nome em `stream` precisa existir no `go2rtc.yaml`;
   o painel lateral (`S`) marca com um triângulo as fontes cujo stream não existe.
+- **Célula sem vídeo** se recupera sozinha: após 30 s sem imagem ela refaz a conexão do zero.
 - **Vídeo fica em "Conectando…" e cai para MSE** — WebRTC não negociou. Descomente `webrtc.candidates`
   no `go2rtc.yaml` com o IP do Pi e reinicie o go2rtc.
 - **Célula fica em "go2rtc inacessível" mas `http://view.blizzard.net:1984` abre** — o go2rtc recusa WebSocket

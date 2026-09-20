@@ -23,8 +23,13 @@ def markers(tag: str, script: str):
     return begin, end
 
 
-def build_outputs(cameras, group: str, prefix: str, tag: str, script: str):
-    """cameras: [{name, low, high|None}] -> (bloco YAML, lista de fontes da Blizzard)."""
+def build_outputs(cameras, group: str, prefix: str, tag: str, script: str, h264: bool = False):
+    """cameras: [{name, low, high|None}] -> (bloco YAML, lista de fontes da Blizzard).
+
+    h264=True: câmeras em H.265, que o Chromium do Pi não toca. O nome de sempre passa a ser a versão H.264
+    do stream Low (template ffmpeg "h264/pi" do go2rtc.yaml) e o High fica sem uso, porque o Pi 4 não
+    consegue convertê-lo em tempo real.
+    """
     begin, end = markers(tag, script)
     yaml_lines = [begin]
     sources = []
@@ -37,11 +42,16 @@ def build_outputs(cameras, group: str, prefix: str, tag: str, script: str):
             stream = f"{base}_{n}"
             n += 1
         used.add(stream)
-        yaml_lines.append(f"  {stream}: {cam['low']}")
+        if h264:
+            yaml_lines.append(f"  {stream}_src: {cam['low']}")
+            yaml_lines.append(f"  {stream}: ffmpeg:{stream}_src#video=h264/pi")
+        else:
+            yaml_lines.append(f"  {stream}: {cam['low']}")
         source = {"type": "camera", "id": stream.replace("_", "-"), "name": cam["name"], "group": group, "stream": stream}
         if cam.get("high"):
             yaml_lines.append(f"  {stream}_hd: {cam['high']}")
-            source["hdStream"] = f"{stream}_hd"
+            if not h264:
+                source["hdStream"] = f"{stream}_hd"
         sources.append(source)
     yaml_lines.append(end)
     return "\n".join(yaml_lines), sources

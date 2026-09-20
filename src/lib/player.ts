@@ -35,6 +35,12 @@ export class BlizzardVideo extends VideoRTC {
    * mostrava "go2rtc inacessível" e abria uma terceira conexão, deixando a segunda órfã.
    */
   onconnect(): boolean {
+    // O original fecha o RTCPeerConnection num erro de WebRTC mas não zera `this.pc`; um pc fechado nunca
+    // dispara "failed", então a condição abaixo barraria toda reconexão futura desta célula.
+    if (this.pc && (this.pc.connectionState === 'closed' || this.pc.connectionState === 'failed')) {
+      this.pc = null
+      this.pcState = WebSocket.CLOSED
+    }
     if (!this.isConnected || !this.wsURL || this.ws || this.pc) return false
     this.wsState = WebSocket.CONNECTING
     this.connectTS = Date.now()

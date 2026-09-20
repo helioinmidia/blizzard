@@ -27,3 +27,4 @@ __pycache__/
 
 # uid/gid gravados pelo pi/install.sh e URL/token do Home Assistant (ver .env.example)
 .env
+docker-compose.override.yml

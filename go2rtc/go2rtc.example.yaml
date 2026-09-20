@@ -19,6 +19,11 @@ webrtc:
 rtsp:
   listen: ":8554"
 
+# Câmeras em H.265 não tocam no Chromium do Pi: o encoder H.264 por hardware do Pi 4 (/dev/video11)
+# converte o sub-stream gastando ~13% de um núcleo por câmera. Usado como #video=h264/pi.
+ffmpeg:
+  h264/pi: "-vf fps=15,format=yuv420p -c:v h264_v4l2m2m -b:v 1200k -g 30 -bf 0 -bsf:v dump_extra=freq=keyframe"
+
 streams:
   # ---------------------------------------------------------------------------
   # UniFi Protect (casa)

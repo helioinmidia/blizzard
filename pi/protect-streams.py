@@ -185,6 +185,8 @@ def main():
     parser.add_argument("--group", default="casa", help="grupo da Blizzard onde as câmeras entram (padrão: casa)")
     parser.add_argument("--prefix", default="unifi", help="prefixo dos nomes de stream no go2rtc (padrão: unifi)")
     parser.add_argument("--verify-tls", action="store_true", help="valida o certificado do console (padrão: não)")
+    parser.add_argument("--h264", action="store_true",
+                        help="câmeras em H.265 (Enhanced encoding): converte o stream Low para H.264 no Pi e não usa o High")
     parser.add_argument("--apply", action="store_true", help="grava go2rtc.yaml e blizzard.config.json")
     parser.add_argument("--go2rtc", default=None, help="caminho do go2rtc.yaml (padrão: <repo>/go2rtc/go2rtc.yaml)")
     parser.add_argument("--config", default=None, help="caminho do blizzard.config.json")
@@ -205,7 +207,7 @@ def main():
         raise SystemExit("Nenhuma câmera com stream RTSP encontrada.")
     cameras.sort(key=lambda cam: natural_key(cam["name"]))
 
-    block, sources = build_outputs(cameras, args.group, args.prefix, TAG, SCRIPT)
+    block, sources = build_outputs(cameras, args.group, args.prefix, TAG, SCRIPT, h264=args.h264)
     print(f"\n{len(cameras)} câmera(s):", file=sys.stderr)
     for cam in cameras:
         print(f"  - {cam['name']}", file=sys.stderr)
