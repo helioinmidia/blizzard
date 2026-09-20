@@ -3,7 +3,7 @@ import tailwindcss from '@tailwindcss/vite'
 import { defineConfig, type ServerOptions as ProxyOptions } from 'vite'
 
 // Em desenvolvimento, /go2rtc vai para um go2rtc local (porta 1984) e /api para o server/config-api.py (porta 8787).
-// Defina GO2RTC_URL para apontar a outro host, ex.: GO2RTC_URL=http://videowall.blizzard.net:1984 npm run dev
+// Defina GO2RTC_URL para apontar a outro host, ex.: GO2RTC_URL=http://view.blizzard.net:1984 npm run dev
 const go2rtcTarget = process.env.GO2RTC_URL ?? 'http://127.0.0.1:1984'
 
 const configApiTarget = process.env.CONFIG_API_URL ?? 'http://127.0.0.1:8787'

@@ -9,13 +9,13 @@
 #   2. sobe go2rtc + servidor web da central com docker compose (reinicia sozinho no boot);
 #   3. instala Chromium e configura a sessão gráfica para abrir a central em quiosque no boot;
 #   4. desliga o descanso de tela e ativa login automático no desktop;
-#   5. define o hostname do Pi (BLIZZARD_HOST, padrão videowall.blizzard.net).
+#   5. define o hostname do Pi (BLIZZARD_HOST, padrão view.blizzard.net).
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 REPO_DIR="$(pwd)"
 USER_NAME="${SUDO_USER:-$USER}"
-BLIZZARD_HOST="${BLIZZARD_HOST:-videowall.blizzard.net}"
+BLIZZARD_HOST="${BLIZZARD_HOST:-view.blizzard.net}"
 SHORT_HOST="${BLIZZARD_HOST%%.*}"
 
 if [ "$(id -u)" -eq 0 ]; then
