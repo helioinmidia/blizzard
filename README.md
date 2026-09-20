@@ -229,8 +229,7 @@ ampliada.
 
 **Segurança.** O token nunca chega ao navegador: fica no container `ha-bridge`, que escuta apenas em
 `127.0.0.1:8099` e é publicado pelo nginx em `/ha/`. A ponte só lê, e só expõe as entidades citadas no
-`blizzard.config.json` **do servidor** (entidades adicionadas apenas pelo editor da tecla `C`, que grava no
-navegador, aparecem como "Sem dados" até entrarem no arquivo). Quem estiver na rede local consegue ver
+`blizzard.config.json` do servidor; ela relê o arquivo sozinha quando a tela salva uma alteração. Quem estiver na rede local consegue ver
 esses estados, assim como já consegue ver as câmeras.
 
 ### 4. Home Assistant dentro de um iframe (opcional)
