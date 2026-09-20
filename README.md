@@ -282,11 +282,12 @@ O Chromium do Pi decodifica vídeo por software. Regras práticas:
   video:H265"). É o caso do UniFi Protect com *Enhanced encoding* ligado. Duas saídas:
   - **Na câmera (melhor):** Protect → câmera → Configurações → Gravação → *Encoding* **Standard (H.264)**.
     Custo zero no Pi e o stream High volta a funcionar ao ampliar; as gravações ocupam mais disco.
-  - **No Pi:** `./pi/protect-streams.py ... --h264 --apply`. O stream Low passa pelo encoder H.264 por
-    hardware do Pi 4 (template `h264/pi` do `go2rtc.yaml`, 640×360 a 15 fps, ~13% de um núcleo por câmera).
-    O High (4 MP em H.265) fica sem uso: o Pi não consegue convertê-lo em tempo real, então a célula
-    ampliada mostra o mesmo stream da grade. Requer o `docker-compose.override.yml` que o `install.sh`
-    cria a partir de `docker-compose.pi.yml` (dá `/dev/video11` ao container).
+  - **No Pi:** `./pi/protect-streams.py ... --h264 --apply`. O stream Low é convertido para H.264 pelo
+    go2rtc (template `h264/pi` do `go2rtc.yaml`: 640×360 a 15 fps, ~20% de um núcleo por câmera; 4 câmeras
+    deixam o Pi 4 em ~70% de CPU, sem *throttling*). O High (4 MP em H.265) fica sem uso: o Pi não consegue
+    convertê-lo em tempo real, então a célula ampliada mostra o mesmo stream da grade. O encoder por
+    hardware do Pi não é usado porque só envia SPS/PPS no primeiro quadro, e quem conecta depois recebe
+    imagem corrompida.
 - Prefira cabo de rede. Wi-Fi funciona, mas várias câmeras simultâneas sofrem com perda de pacotes.
 - Um dissipador ou cooler evita *throttling* com muitas células.
 

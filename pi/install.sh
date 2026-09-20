@@ -52,10 +52,6 @@ fi
 printf 'BLIZZARD_UID=%s\nBLIZZARD_GID=%s\n' "$(id -u "$USER_NAME")" "$(id -g "$USER_NAME")" > "$REPO_DIR/.env"
 
 echo "==> Subindo containers (primeira build pode levar alguns minutos no Pi)"
-# No Raspberry Pi, o go2rtc ganha acesso ao encoder H.264 por hardware (para câmeras em H.265).
-if [ -e /dev/video11 ] && [ ! -f "$REPO_DIR/docker-compose.override.yml" ]; then
-  cp "$REPO_DIR/docker-compose.pi.yml" "$REPO_DIR/docker-compose.override.yml"
-fi
 (cd "$REPO_DIR" && sudo docker compose up -d --build)
 
 echo "==> Autostart do quiosque"

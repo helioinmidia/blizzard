@@ -1,6 +1,0 @@
-# Raspberry Pi: dá ao go2rtc o encoder H.264 por hardware (usado pelo template ffmpeg "h264/pi").
-# O pi/install.sh copia este arquivo para docker-compose.override.yml, que o docker compose lê sozinho.
-services:
-  go2rtc:
-    devices:
-      - /dev/video11:/dev/video11

@@ -19,10 +19,11 @@ webrtc:
 rtsp:
   listen: ":8554"
 
-# Câmeras em H.265 não tocam no Chromium do Pi: o encoder H.264 por hardware do Pi 4 (/dev/video11)
-# converte o sub-stream gastando ~13% de um núcleo por câmera. Usado como #video=h264/pi.
+# Câmeras em H.265 não tocam no Chromium do Pi. Este template (usado como #video=h264/pi) converte o
+# sub-stream para H.264 a 15 fps por software, ~20% de um núcleo do Pi 4 por câmera. O encoder por hardware
+# (h264_v4l2m2m) não serve: só envia SPS/PPS no primeiro quadro e quem conecta depois recebe imagem corrompida.
 ffmpeg:
-  h264/pi: "-vf fps=15,format=yuv420p -c:v h264_v4l2m2m -b:v 1200k -g 30 -bf 0 -bsf:v dump_extra=freq=keyframe"
+  h264/pi: "-vf fps=15 -c:v libx264 -preset ultrafast -tune zerolatency -pix_fmt yuv420p -crf 25 -maxrate 1500k -bufsize 3000k -g 30 -bf 0"
 
 streams:
   # ---------------------------------------------------------------------------
