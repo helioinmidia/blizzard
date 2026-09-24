@@ -28,6 +28,12 @@ fi
 # Remove a marca de "encerrado incorretamente" para não aparecer a barra de restaurar sessão.
 PROFILE="$HOME/.config/blizzard-kiosk"
 mkdir -p "$PROFILE"
+
+# Trava de perfil órfã (queda de energia, ou o hostname do Pi mudou): o Chromium abriria um diálogo
+# "profile appears to be in use" e a TV ficaria parada nele. Sem nenhum Chromium usando este perfil, remove.
+if ! pgrep -u "$(id -u)" -f -- "--user-data-dir=$PROFILE" >/dev/null 2>&1; then
+  rm -f "$PROFILE"/Singleton*
+fi
 sed -i 's/"exited_cleanly":false/"exited_cleanly":true/; s/"exit_type":"Crashed"/"exit_type":"Normal"/' \
   "$PROFILE/Default/Preferences" 2>/dev/null || true
 
@@ -37,7 +43,7 @@ exec "$BROWSER" \
   --noerrdialogs \
   --disable-infobars \
   --disable-session-crashed-bubble \
-  --disable-features=TranslateUI \
+  --disable-features=Translate,TranslateUI \
   --autoplay-policy=no-user-gesture-required \
   --check-for-update-interval=31536000 \
   --overscroll-history-navigation=0 \

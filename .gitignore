@@ -25,5 +25,6 @@ go2rtc/go2rtc.yaml
 __pycache__/
 *.pyc
 
-# Gerado pelo pi/install.sh (uid/gid para o docker compose)
+# uid/gid gravados pelo pi/install.sh e URL/token do Home Assistant (ver .env.example)
 .env
+__pycache__

@@ -4,7 +4,8 @@ Video wall para TV que reúne, numa única tela:
 
 - **Câmeras da casa** — UniFi Protect (UDM / UNVR / Cloud Key)
 - **Câmeras do condomínio** — DVR/NVR e câmeras Intelbras
-- **Painéis do Home Assistant** — qualquer dashboard, embutido ao vivo
+- **Home Assistant** — cartões de resumo ao vivo (temperaturas, persianas, movimento, portas…) ou
+  qualquer dashboard embutido
 
 Roda inteiro num **Raspberry Pi 4** ligado à TV por HDMI. Nada depende de laptop ou celular: o Pi
 serve a página, converte os streams das câmeras para o navegador e abre o Chromium em modo quiosque no boot.
@@ -14,15 +15,16 @@ serve a página, converte os streams das câmeras para o navegador e abre o Chro
 ```
 Câmeras UniFi (RTSPS) ─┐
 Câmeras Intelbras (RTSP) ┼─▶ go2rtc ─▶ WebRTC / MSE ─▶ Chromium (quiosque) ─▶ TV
-Home Assistant (iframe) ─┘              ▲
-                                  Blizzard web (nginx + React)
+                                        ▲
+Home Assistant ─▶ ha-bridge (SSE) ─▶ Blizzard web (nginx + React)
 ```
 
 | Peça | Função |
 | --- | --- |
 | [go2rtc](https://github.com/AlexxIT/go2rtc) | Recebe RTSP/RTSPS das câmeras e entrega ao navegador via WebRTC (ou MSE/HLS como fallback), sem transcodificar. |
-| Blizzard web | Aplicação React (este repositório) servida por nginx, que também faz proxy de `/go2rtc` para o go2rtc e de `/api` para a API de configuração. |
+| Blizzard web | Aplicação React (este repositório) servida por nginx, que também faz proxy de `/go2rtc` para o go2rtc de `/api` para a API de configuração e de `/ha` para a ponte do Home Assistant. |
 | API de configuração | `server/config-api.py` (Python, sem dependências): lê e grava `public/config/blizzard.config.json`. Toda alteração feita na tela é salva aqui, nunca no navegador. |
+| ha-bridge | Serviço Node sem dependências (`ha-bridge/server.mjs`). Guarda o token do Home Assistant no Pi e envia ao navegador, em tempo real e só para leitura, os estados das entidades usadas nos cartões. |
 | Chromium em quiosque | Abre `http://localhost/` em tela cheia no boot do Pi. |
 
 Tudo sobe com `docker compose` e reinicia sozinho após queda de energia.
@@ -35,6 +37,7 @@ de preferência por cabo. Câmeras, Pi e Home Assistant na mesma rede local.
 ```bash
 git clone https://github.com/helioinmidia/blizzard.git ~/blizzard
 cd ~/blizzard
+cp .env.example .env && nano .env                # URL e token do Home Assistant (cartões de resumo)
 ./pi/install.sh
 sudo reboot
 ```
@@ -110,22 +113,49 @@ casa_garagem_hd: rtspx://192.168.1.1:7441/TOKEN_HIGH
 "High resolution channel" e "Low resolution channel": ligá-los equivale a ativar o RTSP no Protect.
 As URLs, porém, continuam vindo do Protect (ou do script acima); o HA não as mostra.
 
-**Intelbras, automático (recomendado).** O script `pi/intelbras-streams.py` consulta o gravador
-(DVR/NVR MHDX, NVD ou câmera VIP) pela API HTTP padrão Dahua/Intelbras, lê o nome e o codec de cada
-canal e gera os streams RTSP (sub-stream para a grade, principal para ampliar). Use o mesmo usuário e
-senha cadastrados no app Intelbras; a porta 37777 do app é do protocolo proprietário e não é usada
-aqui (a API usa a 80 e o vídeo a 554).
+**Intelbras, automático (recomendado).** O script `pi/intelbras-streams.py` gera os streams RTSP do
+gravador (DVR/NVR MHDX, NVD) ou câmera VIP: sub-stream para a grade, principal para ampliar. Ele sonda
+cada canal por RTSP e resolve sozinho o que o Pi não toca: sub-stream em H.265 passa pelo template
+`h264/pi` (~20% de um núcleo enquanto estiver na tela) e principal em H.265 não é usado ao ampliar.
+A porta 37777 do app é do protocolo proprietário e não é usada aqui (o vídeo usa a 554). A senha nunca vai
+na linha de comando: o script pergunta (ou lê `INTELBRAS_PASSWORD`).
+
+*Gravador em outra rede (ex.: a do condomínio), com a porta RTSP encaminhada no modem de lá:*
 
 ```bash
-./pi/intelbras-streams.py --host 192.168.15.6 --user 'admin@greenforest' --password 'SENHA'          # só mostra
-./pi/intelbras-streams.py --host 192.168.15.6 --user 'admin@greenforest' --password 'SENHA' --apply  # grava
-sudo docker compose restart go2rtc
+./pi/intelbras-streams.py --host ENDERECO_PUBLICO --rtsp-port PORTA_EXTERNA --user blizzard --channels 16 --check
+./pi/intelbras-streams.py --host ENDERECO_PUBLICO --rtsp-port PORTA_EXTERNA --user blizzard --channels 16 --apply
+docker compose restart go2rtc
 ```
 
-As fontes entram no grupo `condominio` com IDs `cond-<nome-do-canal>`, substituindo as de exemplo.
-O script avisa canais em H.265 (o Chromium do Pi não decodifica; mude para H.264 no gravador) e
-canais com sub-stream desligado. Se a API HTTP do gravador estiver bloqueada, `--channels N` gera N
-canais numerados sem consultá-la.
+`--check` só testa e diz o que está errado (nome não resolve, porta fechada, porta que não fala RTSP,
+senha recusada, codec de cada canal). `--channels N` é o número de canais do gravador, porque a API HTTP
+(que daria os nomes) não fica exposta; canais que não responderem ficam de fora e `--only 1,2,5` escolhe
+alguns. Depois dê os nomes reais em `name` no `blizzard.config.json` (os `id` não mudam).
+
+O que pedir a quem administra o gravador e o modem:
+
+1. **Um usuário só para a central** (ex.: `blizzard`), no grupo de usuários comuns, com permissão apenas de
+   *visualização ao vivo* dos canais desejados. Nunca o `admin`: essa senha fica no `go2rtc.yaml` do Pi e
+   qualquer um na sua rede local consegue ver os streams servidos pelo go2rtc.
+2. **Encaminhamento de porta só do RTSP**: porta externa alta e incomum (ex.: 5554) → IP do gravador, porta
+   554, TCP. Não encaminhe a 80 (painel web) nem a 37777.
+3. **Restringir a origem** ao seu IP público, se o modem permitir (`curl -s ifconfig.me` no Pi mostra qual é).
+   RTSP não é criptografado: usuário só de visualização + origem restrita é o que mantém isso aceitável.
+4. **IP fixo para o gravador** na rede dele (reserva de DHCP) e, se o IP público de lá mudar, um DDNS
+   (o próprio gravador oferece o DDNS Intelbras em Rede → DDNS).
+5. No gravador, **sub-stream em H.264**, resolução baixa (CIF/D1) e 10–15 fps: custo zero de CPU no Pi e
+   pouca banda no link do condomínio (cada célula na tela é um stream contínuo pela internet).
+
+*Gravador na mesma rede do Pi:* a API HTTP (porta 80) dá os nomes dos canais.
+
+```bash
+./pi/intelbras-streams.py --host 192.168.15.6 --user blizzard --apply
+docker compose restart go2rtc
+```
+
+As fontes entram no grupo `condominio` com IDs `cond-<nome-do-canal>`, substituindo as de exemplo, e, se a
+visão `condominio` não existir ou estiver vazia, já são colocadas nela (a grade se ajusta à quantidade).
 
 **Intelbras, manual.** DVR/NVR e câmeras VIP seguem o padrão Dahua; câmeras Mibo/iM usam `/onvif1`.
 Usuário e senha com caracteres especiais precisam de codificação de URL (`@` vira `%40`):
@@ -170,8 +200,13 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
 }
 ```
 
+- `type` da fonte: `camera` (stream do go2rtc), `ha` (cartões do Home Assistant, seção 3) ou `dashboard`
+  (qualquer página em iframe).
 - `kind` aceita `unifi_protect`, `intelbras`, `home_assistant` ou `other` (só muda a etiqueta).
 - `slots` lista os IDs das fontes linha a linha; `null` deixa a célula vazia.
+- `spans` (opcional) aumenta células: `"spans": { "0": { "cols": 2, "rows": 2 } }` faz o primeiro slot ocupar
+  2×2, por exemplo um painel do Home Assistant grande com cartões ao lado. Os slots seguintes preenchem o
+  que sobra da grade.
 - **Tudo é salvo no servidor.** Trocar a fonte de uma célula pelo seletor, ou salvar no editor da
   tecla **C**, grava o arquivo no Pi pela API (`PUT /api/config`, com validação). Cada tela aberta
   (TV, laptop, celular) confere o servidor a cada 10 s e aplica a mudança sozinha. Nada fica no
@@ -179,9 +214,79 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
 - O arquivo é gravado com o usuário dono do repositório (o `pi/install.sh` registra o UID em `.env`),
   então continua editável fora do container.
 
-### 3. Home Assistant dentro do iframe
+### 3. Home Assistant — cartões de resumo
 
-O HA bloqueia iframes por padrão. Em `configuration.yaml` do HA:
+Uma fonte `"type": "ha"` desenha cartões nativos com os estados das entidades, atualizados em tempo real.
+Não precisa de login na TV nem de mudança no Home Assistant, e pesa muito menos no Pi do que um dashboard
+em iframe.
+
+1. No HA, crie um token: *Perfil → Segurança → Tokens de acesso de longa duração → Criar token*.
+2. No Pi, `cp .env.example .env` e preencha `HA_URL` (como o Pi enxerga o HA) e `HA_TOKEN`.
+   O `.env` fica fora do git.
+3. Declare a fonte e coloque o `id` dela nos `slots` de uma visão:
+
+```jsonc
+{ "type": "ha", "id": "ha-casa", "name": "Casa agora", "group": "ha",
+  "scale": 1,                        // opcional: 1.2 aumenta o texto, 0.9 diminui
+  "cards": [
+    { "title": "Temperatura", "entities": [
+        { "entity": "sensor.term_sala_temperature", "name": "Sala" },
+        "sensor.term_externo_temperature"            // sem "name": usa o nome do HA
+    ] },
+    { "title": "Persianas", "entities": [ { "entity": "cover.persiana_suite", "name": "Suíte" } ] },
+    { "title": "Movimento", "entities": [ { "entity": "binary_sensor.sensor_sala", "name": "Sala" } ] }
+  ] }
+```
+
+4. `sudo docker compose up -d --build`. Mudanças posteriores na lista de entidades não pedem restart:
+   a ponte relê o arquivo sozinha.
+
+Cada cartão tem um `kind` (o padrão é `list`):
+
+| `kind` | O que mostra |
+| --- | --- |
+| `list` | Estado atual de cada entidade (tabela abaixo) |
+| `graph` | Linhas com o histórico das últimas `hours` horas (padrão 24, até 72), até 5 entidades da mesma unidade. Legenda com o valor atual; passar o mouse mostra os valores naquele instante |
+| `bars` | Variação por hora nas últimas 48 h de um medidor acumulado, ex.: kWh consumidos em cada hora, com o total de hoje |
+| `weather` | Condição atual e previsão diária de uma entidade `weather.*` |
+
+```jsonc
+{ "title": "Temperatura · 24 h", "kind": "graph", "hours": 24, "entities": [
+    { "entity": "sensor.term_externo_temperature", "name": "Externo" },
+    { "entity": "sensor.term_sala_temperature", "name": "Sala" } ] },
+{ "title": "Consumo por hora", "kind": "bars", "entities": [ { "entity": "sensor.energia_ano", "name": "Consumo" } ] },
+{ "title": "Tempo", "kind": "weather", "entities": ["weather.home"] }
+```
+
+Com isso uma fonte `ha` grande (veja `spans` acima) faz o papel de um dashboard inteiro, servido pelo próprio
+Pi: não precisa de iframe, de login na TV nem de mudança no Home Assistant. O histórico vem da ponte em
+médias de 5 minutos (`/ha/history`) e as barras das estatísticas do HA (`/ha/statistics`).
+
+Num cartão `list`, como cada entidade aparece depende do domínio e do `device_class` dela:
+
+| Entidade | Exibição |
+| --- | --- |
+| `sensor` numérico | Número grande com unidade; o cabeçalho do cartão mostra a faixa mín – máx |
+| `cover` | Aberta / Fechada / Abrindo / Fechando, com a posição quando parcial; cabeçalho "2 de 4 abertas" |
+| `binary_sensor` de movimento/presença | **Movimento** em destaque, ou "Livre · há 12 min"; cabeçalho "2 com movimento" |
+| `binary_sensor` de porta/janela | Aberta (em vermelho, com há quanto tempo) / Fechada |
+| `binary_sensor` de fumaça, gás, vazamento, problema | Alerta (vermelho) / Normal |
+| `climate` | Modo atual e temperatura medida |
+| `person`, `lock`, `alarm_control_panel`, `light`, `switch` | Em casa/Fora, Trancada/Destrancada, Armado/Desarmado, Ligado/Desligado |
+
+Cartões só com sensores numéricos viram uma grade de números; listas com mais de 6 entidades ocupam a
+largura toda em duas colunas. O texto acompanha o tamanho da célula, então a mesma fonte serve na grade e
+ampliada.
+
+**Segurança.** O token nunca chega ao navegador: fica no container `ha-bridge`, que escuta apenas em
+`127.0.0.1:8099` e é publicado pelo nginx em `/ha/`. A ponte só lê, e só expõe as entidades citadas no
+`blizzard.config.json` do servidor; ela relê o arquivo sozinha quando a tela salva uma alteração. Quem estiver na rede local consegue ver
+esses estados, assim como já consegue ver as câmeras.
+
+### 4. Home Assistant dentro de um iframe (opcional)
+
+Para embutir um dashboard inteiro do HA use uma fonte `"type": "dashboard"` com a URL dele. O HA bloqueia
+iframes por padrão. Em `configuration.yaml` do HA:
 
 ```yaml
 http:
@@ -217,6 +322,7 @@ O painel lateral abre por padrão e some com a tecla `S`; após 15 s sem mouse s
 | Tecla | Ação |
 | --- | --- |
 | `1`–`9` | Troca de visão |
+| `?view=<id>` na URL | Abre direto numa visão, ex.: `http://view.blizzard.net/?view=home-assistant` |
 | `R` | Liga/desliga o rodízio automático |
 | `F` | Tela cheia do navegador |
 | `S` | Painel lateral com todas as fontes (clique amplia) |
@@ -230,10 +336,17 @@ Após 15 s sem mouse/teclado a interface some e fica só o vídeo.
 
 O Chromium do Pi decodifica vídeo por software. Regras práticas:
 
-- Na grade, use sempre o sub-stream das câmeras (≈640×360, ≤15 fps). 4 a 6 células rodam bem; a visão Geral
-  com 12 células só é viável com sub-streams pequenos (≈480×270, 10 fps) e mesmo assim exige teste no Pi.
-- H.264 é o codec seguro. H.265/HEVC não toca no Chromium do Pi; mude a câmera para H.264 ou deixe
-  o go2rtc transcodificar apenas esse stream (`ffmpeg:...#video=h264`), com custo de CPU.
+- Na grade, use sempre o sub-stream das câmeras (≈640×360, ≤15 fps). 4 a 6 células rodam bem; 9 é o limite.
+- H.264 é o codec seguro. **H.265/HEVC não toca no Chromium do Pi** (a célula mostra "codecs not matched:
+  video:H265"). É o caso do UniFi Protect com *Enhanced encoding* ligado. Duas saídas:
+  - **Na câmera (melhor):** Protect → câmera → Configurações → Gravação → *Encoding* **Standard (H.264)**.
+    Custo zero no Pi e o stream High volta a funcionar ao ampliar; as gravações ocupam mais disco.
+  - **No Pi:** `./pi/protect-streams.py ... --h264 --apply`. O stream Low é convertido para H.264 pelo
+    go2rtc (template `h264/pi` do `go2rtc.yaml`: 640×360 a 15 fps, ~20% de um núcleo por câmera; 4 câmeras
+    deixam o Pi 4 em ~70% de CPU, sem *throttling*). O High (4 MP em H.265) fica sem uso: o Pi não consegue
+    convertê-lo em tempo real, então a célula ampliada mostra o mesmo stream da grade. O encoder por
+    hardware do Pi não é usado porque só envia SPS/PPS no primeiro quadro, e quem conecta depois recebe
+    imagem corrompida.
 - Prefira cabo de rede. Wi-Fi funciona, mas várias câmeras simultâneas sofrem com perda de pacotes.
 - Um dissipador ou cooler evita *throttling* com muitas células.
 
@@ -244,6 +357,8 @@ npm install
 python3 server/config-api.py &                 # API de configuração em http://127.0.0.1:8787
 npm run dev            # http://localhost:5173, /go2rtc → http://127.0.0.1:1984, /api → :8787
 GO2RTC_URL=http://view.blizzard.net:1984 CONFIG_API_URL=http://view.blizzard.net:8787 npm run dev   # usa o Pi
+# cartões do Home Assistant em desenvolvimento: rode a ponte ao lado (/ha → http://127.0.0.1:8099)
+HA_URL=http://homeassistant.local:8123 HA_TOKEN=... BLIZZARD_CONFIG=public/config/blizzard.config.json node ha-bridge/server.mjs
 npm run build && npm run lint
 ```
 
@@ -253,7 +368,9 @@ Estrutura:
 src/lib/config.ts        tipos, validação, leitura e gravação (API) do blizzard.config.json
 server/config-api.py     API de configuração (GET/PUT /api/config) que grava o arquivo no Pi
 src/lib/player.ts        <blizzard-video>, extensão do player oficial do go2rtc (src/vendor)
-src/components/          TopBar, Sidebar, Wall, Tile, VideoTile, DashboardTile, SettingsDialog
+src/lib/ha.ts            conexão SSE com a ponte e tradução dos estados do Home Assistant
+src/components/          TopBar, Sidebar, Wall, Tile, VideoTile, HaTile, DashboardTile, SettingsDialog
+ha-bridge/               ponte do Home Assistant (token no servidor, estados por SSE)
 go2rtc/go2rtc.example.yaml  modelo dos streams (o real, go2rtc.yaml, fica fora do git)
 public/config/           configuração de fontes e visões (montada como volume no container)
 pi/                      instalação, quiosque e descoberta de câmeras (protect-streams.py, intelbras-streams.py)
@@ -264,12 +381,17 @@ pi/                      instalação, quiosque e descoberta de câmeras (protec
 - **"Sem sinal" numa célula** — abra `http://view.blizzard.net:1984`, clique no stream e veja o erro do go2rtc
   (senha errada, câmera fora, codec H.265). O nome em `stream` precisa existir no `go2rtc.yaml`;
   o painel lateral (`S`) marca com um triângulo as fontes cujo stream não existe.
+- **Célula sem vídeo** se recupera sozinha: após 30 s sem imagem ela refaz a conexão do zero.
 - **Vídeo fica em "Conectando…" e cai para MSE** — WebRTC não negociou. Descomente `webrtc.candidates`
   no `go2rtc.yaml` com o IP do Pi e reinicie o go2rtc.
 - **Célula fica em "go2rtc inacessível" mas `http://view.blizzard.net:1984` abre** — o go2rtc recusa WebSocket
   quando o `Origin` do navegador não bate com o `Host` que chega a ele. O nginx deste projeto já remove o
   `Origin`; se você colocar outro proxy na frente, faça o mesmo ou defina `api.origin: "*"` no `go2rtc.yaml`.
-- **Painel do HA em branco** — falta `use_x_frame_options: false` no HA, ou a URL usa `https` com
+- **Cartão do HA em "Ponte do Home Assistant inacessível" ou "Home Assistant fora do ar"** — veja
+  `sudo docker logs blizzard-ha-bridge`: falta o `.env`, o token foi recusado ou o Pi não alcança `HA_URL`.
+  `curl http://localhost/ha/health` mostra se a ponte está conectada e quantas entidades acompanha.
+  "Sem dados" numa linha = `entity_id` errado; "Indisponível" = o próprio HA está sem o dispositivo.
+- **Painel do HA (iframe) em branco** — falta `use_x_frame_options: false` no HA, ou a URL usa `https` com
   certificado que o Chromium rejeita. Teste a URL direto no navegador do Pi.
 - **Tela escurece após alguns minutos** — rode `sudo raspi-config` → Display Options → Screen Blanking → No.
 

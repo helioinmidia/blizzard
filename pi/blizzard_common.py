@@ -23,8 +23,13 @@ def markers(tag: str, script: str):
     return begin, end
 
 
-def build_outputs(cameras, group: str, prefix: str, tag: str, script: str):
-    """cameras: [{name, low, high|None}] -> (bloco YAML, lista de fontes da Blizzard)."""
+def build_outputs(cameras, group: str, prefix: str, tag: str, script: str, h264: bool = False):
+    """cameras: [{name, low, high|None}] -> (bloco YAML, lista de fontes da Blizzard).
+
+    h264=True: câmeras em H.265, que o Chromium do Pi não toca. O nome de sempre passa a ser a versão H.264
+    do stream Low (template ffmpeg "h264/pi" do go2rtc.yaml) e o High fica sem uso, porque o Pi 4 não
+    consegue convertê-lo em tempo real.
+    """
     begin, end = markers(tag, script)
     yaml_lines = [begin]
     sources = []
@@ -37,11 +42,17 @@ def build_outputs(cameras, group: str, prefix: str, tag: str, script: str):
             stream = f"{base}_{n}"
             n += 1
         used.add(stream)
-        yaml_lines.append(f"  {stream}: {cam['low']}")
+        transcode = h264 or cam.get("h264", False)  # por câmera (codec detectado) ou para todas
+        if transcode:
+            yaml_lines.append(f"  {stream}_src: {cam['low']}")
+            yaml_lines.append(f"  {stream}: ffmpeg:{stream}_src#video=h264/pi")
+        else:
+            yaml_lines.append(f"  {stream}: {cam['low']}")
         source = {"type": "camera", "id": stream.replace("_", "-"), "name": cam["name"], "group": group, "stream": stream}
         if cam.get("high"):
             yaml_lines.append(f"  {stream}_hd: {cam['high']}")
-            source["hdStream"] = f"{stream}_hd"
+            if not transcode:
+                source["hdStream"] = f"{stream}_hd"
         sources.append(source)
     yaml_lines.append(end)
     return "\n".join(yaml_lines), sources
@@ -95,3 +106,27 @@ def apply_config(path: str, group: str, group_name: str, kind: str, sources, pre
     with open(path, "w", encoding="utf-8") as fh:
         json.dump(config, fh, ensure_ascii=False, indent=2)
         fh.write("\n")
+
+
+GRID_SIZES = [(1, 1), (2, 1), (2, 2), (3, 2), (3, 3), (4, 3), (4, 4), (5, 4), (6, 4), (6, 5), (6, 6)]
+
+
+def fill_view(path: str, view_id: str, view_name: str, source_ids):
+    """Coloca as fontes numa visão, sem desfazer arrumação feita à mão: só cria a visão ou preenche uma que
+    esteja inteiramente vazia. Devolve True se gravou."""
+    config = json.load(open(path, encoding="utf-8"))
+    views = config.setdefault("views", [])
+    view = next((v for v in views if v.get("id") == view_id), None)
+    if view is not None and any(slot for slot in view.get("slots", [])):
+        return False
+    columns, rows = next(((c, r) for c, r in GRID_SIZES if c * r >= len(source_ids)), (6, 6))
+    slots = list(source_ids)[: columns * rows] + [None] * max(0, columns * rows - len(source_ids))
+    if view is None:
+        views.append({"id": view_id, "name": view_name, "columns": columns, "rows": rows, "slots": slots})
+    else:
+        view.update({"columns": columns, "rows": rows, "slots": slots})
+        view.pop("spans", None)
+    with open(path, "w", encoding="utf-8") as fh:
+        json.dump(config, fh, ensure_ascii=False, indent=2)
+        fh.write("\n")
+    return True

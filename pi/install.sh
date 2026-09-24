@@ -49,10 +49,15 @@ if [ ! -f "$REPO_DIR/go2rtc/go2rtc.yaml" ]; then
 fi
 
 # A API de configuração grava public/config/blizzard.config.json com o seu usuário (não como root).
-printf 'BLIZZARD_UID=%s\nBLIZZARD_GID=%s\n' "$(id -u "$USER_NAME")" "$(id -g "$USER_NAME")" > "$REPO_DIR/.env"
+# O .env também guarda HA_URL/HA_TOKEN da ponte do Home Assistant: troca só as duas chaves daqui, sem apagar o resto.
+ENV_FILE="$REPO_DIR/.env"
+touch "$ENV_FILE" && chmod 600 "$ENV_FILE"
+grep -v -E '^BLIZZARD_(UID|GID)=' "$ENV_FILE" > "$ENV_FILE.tmp" || true
+printf 'BLIZZARD_UID=%s\nBLIZZARD_GID=%s\n' "$(id -u "$USER_NAME")" "$(id -g "$USER_NAME")" >> "$ENV_FILE.tmp"
+chmod 600 "$ENV_FILE.tmp" && mv "$ENV_FILE.tmp" "$ENV_FILE"
 
 echo "==> Subindo containers (primeira build pode levar alguns minutos no Pi)"
-sudo docker compose -f "$REPO_DIR/docker-compose.yml" up -d --build
+(cd "$REPO_DIR" && sudo docker compose up -d --build)
 
 echo "==> Autostart do quiosque"
 AUTOSTART_DIR="$HOME/.config/autostart"

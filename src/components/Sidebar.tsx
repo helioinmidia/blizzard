@@ -1,4 +1,4 @@
-import { Camera, LayoutDashboard } from 'lucide-react'
+import { Camera, Gauge, LayoutDashboard } from 'lucide-react'
 import type { BlizzardConfig, View } from '../lib/config'
 import type { Go2rtcStatus } from '../lib/go2rtc'
 
@@ -60,7 +60,7 @@ export function Sidebar({ config, views, activeViewId, onSelectView, status, rot
             .filter((s) => s.group === group.id)
             .map((source) => {
               const missing = source.type === 'camera' && status?.reachable && !known.has(source.stream)
-              const dot = source.type === 'dashboard' ? 'bg-amber-400' : missing ? 'bg-amber-400' : 'bg-forest-400'
+              const dot = source.type !== 'camera' ? 'bg-amber-400' : missing ? 'bg-amber-400' : 'bg-forest-400'
               return (
                 <button
                   key={source.id}
@@ -72,6 +72,8 @@ export function Sidebar({ config, views, activeViewId, onSelectView, status, rot
                   <span className={`h-2 w-2 shrink-0 rounded-full ${dot}`} />
                   {source.type === 'camera' ? (
                     <Camera className="h-3.5 w-3.5 shrink-0 text-frost-600" />
+                  ) : source.type === 'ha' ? (
+                    <Gauge className="h-3.5 w-3.5 shrink-0 text-frost-600" />
                   ) : (
                     <LayoutDashboard className="h-3.5 w-3.5 shrink-0 text-frost-600" />
                   )}

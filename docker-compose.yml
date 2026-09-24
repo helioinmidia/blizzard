@@ -31,6 +31,22 @@ services:
       - BIND=127.0.0.1
       - TZ=America/Sao_Paulo
 
+  # Ponte do Home Assistant: guarda o token (arquivo .env) e entrega ao navegador, somente para leitura,
+  # os estados das entidades citadas nas fontes "ha" do blizzard.config.json. Escuta só em 127.0.0.1:8099.
+  ha-bridge:
+    build: ./ha-bridge
+    image: blizzard-ha-bridge:local
+    container_name: blizzard-ha-bridge
+    restart: unless-stopped
+    network_mode: host
+    env_file:
+      - path: .env
+        required: false
+    volumes:
+      - ./public/config:/config:ro
+    environment:
+      - TZ=America/Sao_Paulo
+
   web:
     build: .
     image: blizzard-web:local
@@ -43,5 +59,6 @@ services:
     depends_on:
       - go2rtc
       - config-api
+      - ha-bridge
     environment:
       - TZ=America/Sao_Paulo

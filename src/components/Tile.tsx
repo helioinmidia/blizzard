@@ -5,6 +5,7 @@ import { findGroup } from '../lib/config'
 import type { PlayerState } from '../lib/player'
 import { VideoTile } from './VideoTile'
 import { DashboardTile } from './DashboardTile'
+import { HaTile } from './HaTile'
 import { SourceBadge } from './SourceBadge'
 
 interface Props {
@@ -17,7 +18,7 @@ interface Props {
 }
 
 function StatusChip({ source, state }: { source: Source; state: PlayerState }) {
-  if (source.type === 'dashboard') return <span className="chip bg-amber-500/15 text-amber-200">Painel</span>
+  if (source.type !== 'camera') return <span className="chip bg-amber-500/15 text-amber-200">Painel</span>
   if (state.status === 'playing') return <span className="chip bg-forest-500/20 text-forest-400">Ao vivo</span>
   if (state.status === 'error') return <span className="chip bg-amber-500/20 text-amber-300">Sem sinal</span>
   return <span className="chip text-frost-300">Conectando</span>
@@ -46,6 +47,8 @@ export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSour
             playerMode={config.playerMode}
             onState={setState}
           />
+        ) : source.type === 'ha' ? (
+          <HaTile source={source} />
         ) : (
           <DashboardTile url={source.url} title={source.name} />
         )}
@@ -59,7 +62,7 @@ export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSour
       <div className="cell-shade-bottom pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-4 pt-6 pb-3 text-xs text-frost-300 transition-opacity group-hover:opacity-0">
         <span className="flex items-center gap-2 truncate">
           {group && <SourceBadge kind={group.kind} />}
-          <span className="truncate">{source.type === 'camera' ? source.stream : new URL(source.url, window.location.href).host}</span>
+          <span className="truncate">{source.type === 'camera' ? source.stream : source.type === 'ha' ? `${source.cards.length} ${source.cards.length === 1 ? 'cartão' : 'cartões'}` : new URL(source.url, window.location.href).host}</span>
         </span>
         {state.status === 'playing' && <span className="font-semibold">{state.mode}</span>}
       </div>

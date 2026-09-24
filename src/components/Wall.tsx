@@ -10,6 +10,21 @@ interface Props {
   onChangeSource: (slotIndex: number, sourceId: string | null) => void
 }
 
+/** Com células ampliadas (view.spans) a grade enche antes do fim da lista: o que não cabe fica de fora. */
+function visibleCells(view: View) {
+  const total = view.columns * view.rows
+  const cells: { sourceId: string | null; index: number; span: { cols: number; rows: number } }[] = []
+  let used = 0
+  view.slots.forEach((sourceId, index) => {
+    const span = view.spans?.[String(index)] ?? { cols: 1, rows: 1 }
+    const area = span.cols * span.rows
+    if (used + area > total) return
+    used += area
+    cells.push({ sourceId, index, span })
+  })
+  return cells
+}
+
 export function Wall({ config, view, focusedSlot, onFocus, onChangeSource }: Props) {
   if (focusedSlot !== null) {
     return (
@@ -26,24 +41,31 @@ export function Wall({ config, view, focusedSlot, onFocus, onChangeSource }: Pro
     )
   }
 
+  const cells = visibleCells(view)
+
   return (
     <div
-      className="grid h-full w-full gap-3.5"
+      className="grid h-full w-full grid-flow-row-dense gap-3.5"
       style={{
         gridTemplateColumns: `repeat(${view.columns}, minmax(0, 1fr))`,
         gridTemplateRows: `repeat(${view.rows}, minmax(0, 1fr))`,
       }}
     >
-      {view.slots.map((sourceId, index) => (
-        <Tile
+      {cells.map(({ sourceId, index, span }) => (
+        <div
           key={`${view.id}-${index}-${sourceId ?? 'empty'}`}
-          config={config}
-          source={findSource(config, sourceId)}
-          slotIndex={index}
-          focused={false}
-          onFocus={onFocus}
-          onChangeSource={onChangeSource}
-        />
+          className="min-h-0 min-w-0"
+          style={{ gridColumn: `span ${span.cols}`, gridRow: `span ${span.rows}` }}
+        >
+          <Tile
+            config={config}
+            source={findSource(config, sourceId)}
+            slotIndex={index}
+            focused={false}
+            onFocus={onFocus}
+            onChangeSource={onChangeSource}
+          />
+        </div>
       ))}
     </div>
   )

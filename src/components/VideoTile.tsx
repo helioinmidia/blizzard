@@ -12,6 +12,9 @@ interface Props {
 
 const initialState: PlayerState = { status: 'idle', mode: '', error: null }
 
+/** Tempo sem vídeo até a célula refazer a conexão do zero. A TV fica ligada sem ninguém para dar F5. */
+const WATCHDOG_MS = 30_000
+
 export function VideoTile({ go2rtcUrl, stream, playerMode, onState }: Props) {
   const ref = useRef<BlizzardVideo | null>(null)
   const [state, setState] = useState<PlayerState>(initialState)
@@ -39,6 +42,17 @@ export function VideoTile({ go2rtcUrl, stream, playerMode, onState }: Props) {
       onStateRef.current?.(initialState)
     }
   }, [go2rtcUrl, stream, playerMode])
+
+  useEffect(() => {
+    if (state.status === 'playing') return
+    const id = window.setTimeout(() => {
+      const element = ref.current
+      if (!element) return
+      element.ondisconnect()
+      element.src = streamSocketUrl(go2rtcUrl, stream)
+    }, WATCHDOG_MS)
+    return () => window.clearTimeout(id)
+  }, [state, go2rtcUrl, stream])
 
   return (
     <div className="relative h-full w-full bg-black">

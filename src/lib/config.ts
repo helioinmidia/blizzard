@@ -26,7 +26,43 @@ export interface DashboardSource {
   url: string
 }
 
-export type Source = CameraSource | DashboardSource
+export interface HaEntityRef {
+  /** entity_id no Home Assistant, ex.: "sensor.term_sala_temperature". */
+  entity: string
+  /** Nome exibido. Sem ele, usa o friendly_name do Home Assistant. */
+  name?: string
+}
+
+/**
+ * - `list`: estado atual de cada entidade (padrão). Só sensores numéricos → grade de números grandes.
+ * - `graph`: linhas com o histórico das últimas `hours` horas (até 5 séries, mesma unidade).
+ * - `bars`: variação por hora nas últimas 48 h de um medidor acumulado (ex.: kWh consumidos por hora).
+ * - `weather`: condição atual e previsão diária de uma entidade `weather.*`.
+ */
+export type HaCardKind = 'list' | 'graph' | 'bars' | 'weather'
+
+export interface HaCard {
+  title: string
+  kind: HaCardKind
+  /** Janela do gráfico em horas (só `graph`; 1 a 72, padrão 24). */
+  hours: number
+  entities: HaEntityRef[]
+}
+
+export interface HaSource {
+  type: 'ha'
+  id: string
+  name: string
+  group: string
+  /** URL da ponte do Home Assistant vista pelo navegador. Com o nginx do projeto é "/ha". */
+  bridgeUrl: string
+  /** Multiplicador do tamanho do texto (padrão 1). Aumente se a TV fica longe; diminua se o conteúdo não couber. */
+  scale: number
+  /** Cartões de resumo (temperaturas, persianas, movimento…), cada um com suas entidades. */
+  cards: HaCard[]
+}
+
+export type Source = CameraSource | DashboardSource | HaSource
 
 export interface View {
   id: string
@@ -35,6 +71,12 @@ export interface View {
   rows: number
   /** IDs das fontes por posição (linha a linha). `null` deixa a célula vazia. */
   slots: (string | null)[]
+  /**
+   * Células maiores que 1×1, por índice do slot: `{ "0": { "cols": 2, "rows": 2 } }` faz o primeiro slot
+   * ocupar 2 colunas e 2 linhas (ex.: um painel grande ao lado de cartões). Os slots seguintes preenchem
+   * o espaço que sobra; os que não couberem na grade não são desenhados.
+   */
+  spans?: Record<string, { cols: number; rows: number }>
 }
 
 export interface BlizzardConfig {
@@ -69,6 +111,14 @@ function expectString(value: unknown, path: string): string {
   return value
 }
 
+function expectEntityId(value: unknown, path: string): string {
+  const id = expectString(value, path)
+  if (!/^[a-z_]+\.[a-z0-9_]+$/.test(id)) {
+    throw new ConfigError(`"${path}" deve ser um entity_id do Home Assistant (ex.: sensor.sala_temperatura).`)
+  }
+  return id
+}
+
 function expectNumber(value: unknown, path: string, fallback: number): number {
   if (value === undefined) return fallback
   if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) {
@@ -90,6 +140,7 @@ function asRecord(value: unknown, path: string): Record<string, unknown> {
   return value as Record<string, unknown>
 }
 
+const haCardKinds: HaCardKind[] = ['list', 'graph', 'bars', 'weather']
 const sourceKinds: SourceKind[] = ['unifi_protect', 'intelbras', 'home_assistant', 'other']
 
 /** Valida e normaliza um JSON de configuração. Lança ConfigError com mensagem legível. */
@@ -121,6 +172,33 @@ export function parseConfig(raw: unknown): BlizzardConfig {
     if (s.type === 'dashboard') {
       return { type: 'dashboard', id, name, group, url: expectString(s.url, `sources[${i}].url`) }
     }
+    if (s.type === 'ha') {
+      const cards: HaCard[] = expectArray(s.cards, `sources[${i}].cards`).map((item, j) => {
+        const c = asRecord(item, `sources[${i}].cards[${j}]`)
+        const entities = expectArray(c.entities, `sources[${i}].cards[${j}].entities`).map((ref, k) => {
+          const path = `sources[${i}].cards[${j}].entities[${k}]`
+          if (typeof ref === 'string') return { entity: expectEntityId(ref, path) }
+          const e = asRecord(ref, path)
+          const entity: HaEntityRef = { entity: expectEntityId(e.entity, `${path}.entity`) }
+          if (e.name !== undefined) entity.name = expectString(e.name, `${path}.name`)
+          return entity
+        })
+        const cardPath = `sources[${i}].cards[${j}]`
+        const kind = (c.kind ?? 'list') as HaCardKind
+        if (!haCardKinds.includes(kind)) throw new ConfigError(`"${cardPath}.kind" deve ser um de: ${haCardKinds.join(', ')}.`)
+        const hours = expectNumber(c.hours, `${cardPath}.hours`, 24)
+        if (hours < 1 || hours > 72) throw new ConfigError(`"${cardPath}.hours" deve ficar entre 1 e 72.`)
+        if (kind === 'graph' && entities.length > 5) throw new ConfigError(`"${cardPath}" aceita até 5 entidades num gráfico.`)
+        if (kind === 'weather' && !entities[0]?.entity.startsWith('weather.')) {
+          throw new ConfigError(`"${cardPath}" precisa de uma entidade weather.* em "entities".`)
+        }
+        return { title: expectString(c.title, `${cardPath}.title`), kind, hours, entities }
+      })
+      const bridgeUrl = typeof s.bridgeUrl === 'string' && s.bridgeUrl ? s.bridgeUrl.replace(/\/$/, '') : '/ha'
+      const scale = expectNumber(s.scale, `sources[${i}].scale`, 1)
+      if (scale < 0.5 || scale > 3) throw new ConfigError(`"sources[${i}].scale" deve ficar entre 0.5 e 3.`)
+      return { type: 'ha', id, name, group, bridgeUrl, scale, cards }
+    }
     if (s.type === 'camera' || s.type === undefined) {
       const camera: CameraSource = {
         type: 'camera',
@@ -132,7 +210,7 @@ export function parseConfig(raw: unknown): BlizzardConfig {
       if (s.hdStream !== undefined) camera.hdStream = expectString(s.hdStream, `sources[${i}].hdStream`)
       return camera
     }
-    throw new ConfigError(`"sources[${i}].type" deve ser "camera" ou "dashboard".`)
+    throw new ConfigError(`"sources[${i}].type" deve ser "camera", "dashboard" ou "ha".`)
   })
   const sourceIds = new Set(sources.map((s) => s.id))
   if (sourceIds.size !== sources.length) throw new ConfigError('Há fontes com o mesmo "id".')
@@ -154,13 +232,32 @@ export function parseConfig(raw: unknown): BlizzardConfig {
     })
     const total = columns * rows
     const normalized = Array.from({ length: total }, (_, k) => slots[k] ?? null)
-    return {
+    const view: View = {
       id: expectString(v.id, `views[${i}].id`),
       name: expectString(v.name, `views[${i}].name`),
       columns,
       rows,
       slots: normalized,
     }
+    if (v.spans !== undefined) {
+      const spans: NonNullable<View['spans']> = {}
+      for (const [key, value] of Object.entries(asRecord(v.spans, `views[${i}].spans`))) {
+        const path = `views[${i}].spans["${key}"]`
+        const index = Number(key)
+        if (!Number.isInteger(index) || index < 0 || index >= total) {
+          throw new ConfigError(`"${path}" deve ser o índice de um slot (0 a ${total - 1}).`)
+        }
+        const span = asRecord(value, path)
+        const cols = expectNumber(span.cols, `${path}.cols`, 1)
+        const spanRows = expectNumber(span.rows, `${path}.rows`, 1)
+        if (!Number.isInteger(cols) || !Number.isInteger(spanRows) || cols < 1 || spanRows < 1 || cols > columns || spanRows > rows) {
+          throw new ConfigError(`"${path}" deve caber na grade de ${columns}×${rows}.`)
+        }
+        if (cols > 1 || spanRows > 1) spans[String(index)] = { cols, rows: spanRows }
+      }
+      if (Object.keys(spans).length > 0) view.spans = spans
+    }
+    return view
   })
   if (new Set(views.map((v) => v.id)).size !== views.length) {
     throw new ConfigError('Há visões com o mesmo "id".')

@@ -9,6 +9,7 @@ API mínima de configuração da Blizzard. Só biblioteca padrão.
 Variáveis: CONFIG_PATH (padrão ./public/config/blizzard.config.json), PORT (padrão 8787), BIND (127.0.0.1).
 """
 import json
+import re
 import os
 import sys
 import tempfile
@@ -26,6 +27,9 @@ SOURCE_KINDS = {"unifi_protect", "intelbras", "home_assistant", "other"}
 
 class ConfigError(ValueError):
     pass
+
+
+ENTITY_ID = re.compile(r"^[a-z_]+\.[a-z0-9_]+$")
 
 
 def validate(raw):
@@ -58,8 +62,21 @@ def validate(raw):
             raise ConfigError(f'"sources[{i}].stream" é obrigatório para câmeras')
         if kind == "dashboard" and not s.get("url"):
             raise ConfigError(f'"sources[{i}].url" é obrigatório para painéis')
-        if kind not in ("camera", "dashboard"):
-            raise ConfigError(f'"sources[{i}].type" deve ser "camera" ou "dashboard"')
+        if kind == "ha":
+            cards = s.get("cards")
+            if not isinstance(cards, list):
+                raise ConfigError(f'"sources[{i}].cards" deve ser uma lista de cartões')
+            for j, card in enumerate(cards):
+                if not isinstance(card, dict) or not card.get("title") or not isinstance(card.get("entities"), list):
+                    raise ConfigError(f'"sources[{i}].cards[{j}]" precisa de "title" e de uma lista "entities"')
+                if card.get("kind", "list") not in ("list", "graph", "bars", "weather"):
+                    raise ConfigError(f'"sources[{i}].cards[{j}].kind" deve ser "list", "graph", "bars" ou "weather"')
+                for k, ref in enumerate(card["entities"]):
+                    entity = ref.get("entity") if isinstance(ref, dict) else ref
+                    if not isinstance(entity, str) or not ENTITY_ID.match(entity):
+                        raise ConfigError(f'"sources[{i}].cards[{j}].entities[{k}]" deve ser um entity_id do Home Assistant')
+        if kind not in ("camera", "dashboard", "ha"):
+            raise ConfigError(f'"sources[{i}].type" deve ser "camera", "dashboard" ou "ha"')
         if s["id"] in source_ids:
             raise ConfigError(f'fonte "{s["id"]}" repetida')
         source_ids.add(s["id"])
@@ -73,6 +90,16 @@ def validate(raw):
         for j, slot in enumerate(v.get("slots", [])):
             if slot not in (None, "") and slot not in source_ids:
                 raise ConfigError(f'"views[{i}].slots[{j}]" referencia a fonte "{slot}", que não existe')
+        spans = v.get("spans", {})
+        if not isinstance(spans, dict):
+            raise ConfigError(f'"views[{i}].spans" deve ser um objeto')
+        for key, span in spans.items():
+            ok = (
+                key.isdigit() and int(key) < cols * rows and isinstance(span, dict)
+                and all(isinstance(span.get(k, 1), int) and 1 <= span.get(k, 1) <= limit for k, limit in (("cols", cols), ("rows", rows)))
+            )
+            if not ok:
+                raise ConfigError(f'"views[{i}].spans[{key}]" deve ser {{"cols", "rows"}} dentro da grade de {cols}x{rows}')
         if v["id"] in view_ids:
             raise ConfigError(f'visão "{v["id"]}" repetida')
         view_ids.add(v["id"])
