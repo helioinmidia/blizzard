@@ -1,20 +1,23 @@
 @import "tailwindcss";
 
+/* Glacier: fundo azul-noite, painéis de vidro fosco, células arredondadas, ciano como acento. */
 @theme {
-  --color-ink-950: #060b14;
-  --color-ink-900: #0b1220;
-  --color-ink-800: #111a2b;
-  --color-ink-700: #1a2638;
-  --color-ink-600: #263449;
-  --color-frost-100: #eef4ff;
-  --color-frost-300: #b8c7e0;
-  --color-frost-500: #6f83a3;
-  --color-ice-400: #5cc8ff;
-  --color-ice-500: #2fb2f5;
+  --color-ink-950: #03060b;
+  --color-ink-900: #050b14;
+  --color-ink-800: #0b1220;
+  --color-ink-700: #14213a;
+  --color-ink-600: #1f3050;
+  --color-frost-100: #e6eef8;
+  --color-frost-300: #c3cfdf;
+  --color-frost-500: #8fa3bd;
+  --color-frost-600: #6f849e;
+  --color-ice-400: #7dd3fc;
+  --color-ice-500: #38bdf8;
   --color-forest-400: #4ade80;
   --color-forest-500: #22c55e;
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Manrope", ui-sans-serif, system-ui, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --radius-cell: 20px;
 }
 
 html, body, #root {
@@ -22,7 +25,9 @@ html, body, #root {
 }
 
 body {
-  background-color: var(--color-ink-950);
+  background-color: var(--color-ink-900);
+  background-image: radial-gradient(120% 90% at 100% 0%, #0d1b2e 0%, #050b14 55%, #03060b 100%);
+  background-attachment: fixed;
   color: var(--color-frost-100);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
@@ -33,20 +38,44 @@ body {
   scrollbar-color: var(--color-ink-600) transparent;
 }
 
-@keyframes pulse-ring {
-  0% { box-shadow: 0 0 0 0 rgb(239 68 68 / 0.6); }
-  100% { box-shadow: 0 0 0 10px rgb(239 68 68 / 0); }
+/* Painel de vidro fosco. */
+.glass {
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(18px);
+  -webkit-backdrop-filter: blur(18px);
 }
 
-.pulse-critical {
-  animation: pulse-ring 1.4s ease-out infinite;
+/* Célula do video wall: cantos arredondados, sombra suave e contorno interno. */
+.cell {
+  border-radius: var(--radius-cell);
+  background: #06090f;
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.55), inset 0 0 0 1px rgba(255, 255, 255, 0.06);
+}
+
+/* Degradês que dão legibilidade aos rótulos sobre o vídeo. */
+.cell-shade-top {
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.55), transparent);
+}
+.cell-shade-bottom {
+  background: linear-gradient(0deg, rgba(0, 0, 0, 0.6), transparent);
+}
+
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.2;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--color-frost-100);
+  white-space: nowrap;
 }
 
 @keyframes slide-in {
   from { opacity: 0; transform: translateY(-6px); }
   to { opacity: 1; transform: translateY(0); }
-}
-
-.event-enter {
-  animation: slide-in 220ms ease-out;
 }

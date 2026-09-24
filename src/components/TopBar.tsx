@@ -1,111 +1,70 @@
-import { Maximize, PanelLeft, Pause, Play, Settings, Wifi, WifiOff } from 'lucide-react'
-import type { Go2rtcStatus } from '../lib/go2rtc'
+import { Maximize, PanelLeft, Pause, Play, Settings } from 'lucide-react'
 import type { View } from '../lib/config'
-import { formatClock, formatShortDate } from '../lib/format'
 import { useClock } from '../hooks/useClock'
 
 interface Props {
-  views: View[]
-  activeViewId: string | null
-  onSelectView: (id: string) => void
+  view: View | null
+  subtitle: string
   rotating: boolean
-  rotationSeconds: number
+  canRotate: boolean
   onToggleRotation: () => void
-  status: Go2rtcStatus | null
   sidebarOpen: boolean
   onToggleSidebar: () => void
   onOpenSettings: () => void
   onFullscreen: () => void
 }
 
-export function TopBar({
-  views,
-  activeViewId,
-  onSelectView,
-  rotating,
-  rotationSeconds,
-  onToggleRotation,
-  status,
-  sidebarOpen,
-  onToggleSidebar,
-  onOpenSettings,
-  onFullscreen,
-}: Props) {
-  const now = useClock()
-  const canRotate = rotationSeconds > 0 && views.length > 1
+const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' })
+const dateFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
+
+export function TopBar({ view, subtitle, rotating, canRotate, onToggleRotation, sidebarOpen, onToggleSidebar, onOpenSettings, onFullscreen }: Props) {
+  const now = useClock(1000)
+  const date = dateFormatter.format(now)
 
   return (
-    <header className="flex h-11 items-center gap-3 border-b border-ink-700 bg-ink-900 px-3">
-      <button
-        type="button"
-        onClick={onToggleSidebar}
-        title="Mostrar/ocultar painel lateral (S)"
-        className={`rounded p-1.5 hover:bg-ink-700 ${sidebarOpen ? 'text-ice-400' : 'text-frost-300'}`}
-      >
-        <PanelLeft className="h-4 w-4" />
-      </button>
-
-      <div className="flex items-center gap-2">
-        <img src="/blizzard.svg" alt="" className="h-6 w-6" />
-        <span className="text-sm font-bold tracking-[0.2em] text-frost-100">BLIZZARD</span>
-        <span className="hidden text-xs text-frost-500 sm:inline">Central de Monitoramento</span>
+    <header className="flex items-center justify-between gap-4 px-1.5">
+      <div className="flex min-w-0 items-center gap-3">
+        <button
+          type="button"
+          onClick={onToggleSidebar}
+          title="Mostrar/ocultar painel lateral (S)"
+          aria-label="Mostrar ou ocultar painel lateral"
+          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full hover:bg-white/10 ${sidebarOpen ? 'text-ice-400' : 'text-frost-300'}`}
+        >
+          <PanelLeft className="h-4 w-4" />
+        </button>
+        <div className="flex min-w-0 flex-col leading-tight">
+          <span className="truncate text-[26px] font-bold tracking-tight">{view?.name ?? 'Blizzard'}</span>
+          <span className="truncate text-[13px] text-frost-500">{subtitle}</span>
+        </div>
       </div>
 
-      <nav className="ml-4 flex min-w-0 flex-1 items-center gap-1 overflow-x-auto">
-        {views.map((view, index) => (
+      <div className="flex items-center gap-5">
+        <div className="flex items-center gap-2">
           <button
-            key={view.id}
             type="button"
-            onClick={() => onSelectView(view.id)}
-            title={`Visão ${index + 1} (tecla ${index + 1})`}
-            className={`shrink-0 rounded px-2.5 py-1 text-xs font-medium transition-colors ${
-              view.id === activeViewId ? 'bg-ice-500/20 text-ice-400' : 'text-frost-300 hover:bg-ink-700'
-            }`}
+            onClick={onToggleRotation}
+            disabled={!canRotate}
+            title={canRotate ? 'Ligar/desligar rodízio (R)' : 'Configure rotationSeconds e ao menos duas visões'}
+            className={`chip disabled:opacity-40 ${rotating ? 'bg-forest-500/20 text-forest-400' : 'hover:bg-white/15'}`}
           >
-            <span className="mr-1.5 font-mono text-[10px] text-frost-500">{index + 1}</span>
-            {view.name}
+            {rotating ? <Pause className="h-3 w-3" /> : <Play className="h-3 w-3" />}
+            Rodízio
           </button>
-        ))}
-      </nav>
-
-      <button
-        type="button"
-        onClick={onToggleRotation}
-        disabled={!canRotate}
-        title={canRotate ? `Rodízio a cada ${rotationSeconds}s (R)` : 'Configure rotationSeconds e ao menos duas visões'}
-        className={`flex items-center gap-1 rounded px-2 py-1 text-xs disabled:opacity-40 ${
-          rotating ? 'bg-forest-500/20 text-forest-400' : 'text-frost-300 hover:bg-ink-700'
-        }`}
-      >
-        {rotating ? <Pause className="h-3.5 w-3.5" /> : <Play className="h-3.5 w-3.5" />}
-        Rodízio
-      </button>
-
-      <div
-        className="flex items-center gap-1.5 text-xs"
-        title={status?.reachable ? `${status.streams.length} streams no go2rtc` : 'go2rtc inacessível'}
-      >
-        {status === null ? (
-          <Wifi className="h-4 w-4 text-frost-500" />
-        ) : status.reachable ? (
-          <Wifi className="h-4 w-4 text-forest-400" />
-        ) : (
-          <WifiOff className="h-4 w-4 text-red-400" />
-        )}
-        <span className="hidden text-frost-300 md:inline">go2rtc</span>
+          <button type="button" onClick={onFullscreen} title="Tela cheia (F)" className="chip hover:bg-white/15">
+            <Maximize className="h-3 w-3" />
+            Tela cheia
+          </button>
+          <button type="button" onClick={onOpenSettings} title="Configuração (C)" className="chip hover:bg-white/15">
+            <Settings className="h-3 w-3" />
+            Configurar
+          </button>
+        </div>
+        <div className="flex flex-col items-end leading-none">
+          <span className="text-[40px] font-bold tracking-tight tabular-nums">{timeFormatter.format(now)}</span>
+          <span className="mt-1 text-[13px] text-frost-500">{date.charAt(0).toUpperCase() + date.slice(1)}</span>
+        </div>
       </div>
-
-      <div className="flex items-baseline gap-2 font-mono">
-        <span className="text-sm text-frost-100">{formatClock(now)}</span>
-        <span className="hidden text-[11px] text-frost-500 md:inline">{formatShortDate(now)}</span>
-      </div>
-
-      <button type="button" onClick={onFullscreen} title="Tela cheia (F)" className="rounded p-1.5 text-frost-300 hover:bg-ink-700">
-        <Maximize className="h-4 w-4" />
-      </button>
-      <button type="button" onClick={onOpenSettings} title="Configuração (C)" className="rounded p-1.5 text-frost-300 hover:bg-ink-700">
-        <Settings className="h-4 w-4" />
-      </button>
     </header>
   )
 }

@@ -7,26 +7,36 @@ interface Props {
   go2rtcUrl: string
   stream: string
   playerMode: string
+  onState?: (state: PlayerState) => void
 }
 
 const initialState: PlayerState = { status: 'idle', mode: '', error: null }
 
-export function VideoTile({ go2rtcUrl, stream, playerMode }: Props) {
+export function VideoTile({ go2rtcUrl, stream, playerMode, onState }: Props) {
   const ref = useRef<BlizzardVideo | null>(null)
   const [state, setState] = useState<PlayerState>(initialState)
+  const onStateRef = useRef(onState)
+  useEffect(() => {
+    onStateRef.current = onState
+  }, [onState])
 
   useEffect(() => {
     const element = ref.current
     if (!element) return
-    const onState = (ev: Event) => setState((ev as CustomEvent<PlayerState>).detail)
-    element.addEventListener(PLAYER_STATE_EVENT, onState)
+    const handle = (ev: Event) => {
+      const next = (ev as CustomEvent<PlayerState>).detail
+      setState(next)
+      onStateRef.current?.(next)
+    }
+    element.addEventListener(PLAYER_STATE_EVENT, handle)
     element.mode = playerMode
     element.media = 'video'
     element.src = streamSocketUrl(go2rtcUrl, stream)
     return () => {
-      element.removeEventListener(PLAYER_STATE_EVENT, onState)
+      element.removeEventListener(PLAYER_STATE_EVENT, handle)
       element.ondisconnect()
       setState(initialState)
+      onStateRef.current?.(initialState)
     }
   }, [go2rtcUrl, stream, playerMode])
 
@@ -34,12 +44,12 @@ export function VideoTile({ go2rtcUrl, stream, playerMode }: Props) {
     <div className="relative h-full w-full bg-black">
       <blizzard-video ref={ref} className="block h-full w-full" />
       {state.status !== 'playing' && (
-        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink-950/70 text-frost-300">
+        <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-ink-900/80 text-frost-300">
           {state.status === 'error' ? (
             <>
-              <VideoOff className="h-8 w-8 text-red-400" />
-              <span className="text-xs font-medium text-red-300">Sem sinal</span>
-              <span className="max-w-[80%] truncate text-[10px] text-frost-500">{state.error}</span>
+              <VideoOff className="h-7 w-7 text-amber-400" />
+              <span className="text-sm font-semibold text-frost-100">Sem sinal</span>
+              <span className="max-w-[85%] truncate text-[11px] text-frost-500">{state.error}</span>
             </>
           ) : (
             <>
@@ -48,11 +58,6 @@ export function VideoTile({ go2rtcUrl, stream, playerMode }: Props) {
             </>
           )}
         </div>
-      )}
-      {state.status === 'playing' && (
-        <span className="absolute right-2 bottom-2 rounded bg-black/60 px-1.5 py-0.5 font-mono text-[10px] text-frost-300">
-          {state.mode}
-        </span>
       )}
     </div>
   )

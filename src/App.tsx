@@ -18,7 +18,8 @@ import { Wall } from './components/Wall'
 import { SettingsDialog } from './components/SettingsDialog'
 import './lib/player'
 
-const IDLE_HIDE_MS = 15_000
+/** Sem mouse/teclado por este tempo, o cursor some (a interface fica, como no desenho da TV). */
+const IDLE_CURSOR_MS = 15_000
 /** Intervalo em que cada tela confere se a configuração mudou no servidor. */
 const CONFIG_POLL_MS = 10_000
 const SPOTLIGHT_VIEW_ID = '__spotlight'
@@ -30,7 +31,7 @@ export default function App() {
   const [spotlightSource, setSpotlightSource] = useState<string | null>(null)
   const [focusedSlot, setFocusedSlot] = useState<number | null>(null)
   const [rotating, setRotating] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(true)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const settingsOpenRef = useRef(false)
@@ -64,7 +65,7 @@ export default function App() {
 
   const { config } = loaded
   const status = useGo2rtcStatus(config.go2rtcUrl)
-  const idle = useIdle(IDLE_HIDE_MS)
+  const idle = useIdle(IDLE_CURSOR_MS)
 
   // Outras telas (laptop, TV) podem ter salvo: sincroniza sem recarregar a página.
   const serialized = useMemo(() => serializeConfig(config), [config])
@@ -84,19 +85,16 @@ export default function App() {
     }
   }, [loaded.origin, serialized, applyConfig])
 
-  const persist = useCallback(
-    async (next: BlizzardConfig) => {
-      setLoaded((current) => ({ ...current, config: next }))
-      setSaveError(null)
-      try {
-        const saved = await saveConfig(next)
-        setLoaded((current) => ({ ...current, config: saved, origin: 'api', error: null }))
-      } catch (err) {
-        setSaveError(describeError(err))
-      }
-    },
-    [],
-  )
+  const persist = useCallback(async (next: BlizzardConfig) => {
+    setLoaded((current) => ({ ...current, config: next }))
+    setSaveError(null)
+    try {
+      const saved = await saveConfig(next)
+      setLoaded((current) => ({ ...current, config: saved, origin: 'api', error: null }))
+    } catch (err) {
+      setSaveError(describeError(err))
+    }
+  }, [])
 
   const views = config.views
   const activeView: View | null = useMemo(() => {
@@ -191,60 +189,80 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [views, settingsOpen, selectView, toggleFullscreen])
 
-  const chromeHidden = idle && !settingsOpen
+  const subtitle = useMemo(() => {
+    if (!activeView) return 'Nenhuma visão configurada'
+    const sources = activeView.slots.map((id) => config.sources.find((s) => s.id === id)).filter((s) => s !== undefined)
+    const cameras = sources.filter((s) => s.type === 'camera').length
+    const panels = sources.filter((s) => s.type === 'dashboard').length
+    const empty = activeView.slots.length - sources.length
+    const parts = [`${cameras} ${cameras === 1 ? 'câmera' : 'câmeras'}`]
+    if (panels) parts.push(`${panels} ${panels === 1 ? 'painel' : 'painéis'}`)
+    if (empty) parts.push(`${empty} ${empty === 1 ? 'célula vazia' : 'células vazias'}`)
+    return `${parts.join(' · ')} · ${activeView.columns}×${activeView.rows}`
+  }, [activeView, config.sources])
+
+  const canRotate = config.rotationSeconds > 0 && views.length > 1
 
   return (
-    <div className={`flex h-full flex-col bg-ink-950 ${chromeHidden ? 'cursor-none' : ''}`}>
-      <div className={`transition-all duration-300 ${chromeHidden ? '-mt-11 opacity-0' : ''}`}>
-        <TopBar
+    <div className={`flex h-full gap-4 p-5 ${idle && !settingsOpen ? 'cursor-none' : ''}`}>
+      {sidebarOpen && (
+        <Sidebar
+          config={config}
           views={views}
           activeViewId={spotlightSource ? null : activeViewId}
           onSelectView={selectView}
-          rotating={rotating}
-          rotationSeconds={config.rotationSeconds}
-          onToggleRotation={() => setRotating((r) => !r)}
           status={status}
+          rotating={rotating}
+          configOrigin={loaded.origin}
+          onPickSource={pickSource}
+        />
+      )}
+
+      <section className="flex min-w-0 flex-1 flex-col gap-3.5">
+        <TopBar
+          view={activeView}
+          subtitle={subtitle}
+          rotating={rotating}
+          canRotate={canRotate}
+          onToggleRotation={() => setRotating((r) => !r)}
           sidebarOpen={sidebarOpen}
           onToggleSidebar={() => setSidebarOpen((o) => !o)}
           onOpenSettings={() => setSettingsOpen(true)}
           onFullscreen={toggleFullscreen}
         />
-      </div>
 
-      {loaded.error && (
-        <div className="flex items-center gap-2 border-b border-amber-900/60 bg-amber-950/40 px-3 py-1.5 text-xs text-amber-200">
-          <AlertTriangle className="h-4 w-4 shrink-0" />
-          <span className="truncate">Configuração inválida: {loaded.error}</span>
-          <button type="button" onClick={() => setSettingsOpen(true)} className="ml-auto shrink-0 underline">
-            Corrigir
-          </button>
-        </div>
-      )}
-      {saveError && (
-        <div className="flex items-center gap-2 border-b border-red-900/60 bg-red-950/40 px-3 py-1.5 text-xs text-red-200">
-          <CloudOff className="h-4 w-4 shrink-0" />
-          <span className="truncate">{saveError}</span>
-          <button type="button" onClick={() => void reload()} className="ml-auto shrink-0 underline">
-            Recarregar do servidor
-          </button>
-        </div>
-      )}
-      {!loaded.error && loaded.origin === 'file' && (
-        <div className="flex items-center gap-2 border-b border-ink-700 bg-ink-900 px-3 py-1 text-[11px] text-frost-500">
-          <CloudOff className="h-3.5 w-3.5 shrink-0" />
-          Servidor de configuração indisponível: alterações não serão salvas.
-        </div>
-      )}
+        {loaded.error && (
+          <div className="glass flex items-center gap-2 rounded-2xl px-4 py-2 text-xs text-amber-200">
+            <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400" />
+            <span className="truncate">Configuração inválida: {loaded.error}</span>
+            <button type="button" onClick={() => setSettingsOpen(true)} className="ml-auto shrink-0 underline">
+              Corrigir
+            </button>
+          </div>
+        )}
+        {saveError && (
+          <div className="glass flex items-center gap-2 rounded-2xl px-4 py-2 text-xs text-red-200">
+            <CloudOff className="h-4 w-4 shrink-0 text-red-400" />
+            <span className="truncate">{saveError}</span>
+            <button type="button" onClick={() => void reload()} className="ml-auto shrink-0 underline">
+              Recarregar do servidor
+            </button>
+          </div>
+        )}
+        {!loaded.error && loaded.origin === 'file' && (
+          <div className="glass flex items-center gap-2 rounded-2xl px-4 py-1.5 text-[11px] text-frost-500">
+            <CloudOff className="h-3.5 w-3.5 shrink-0" />
+            Servidor de configuração indisponível: alterações não serão salvas.
+          </div>
+        )}
 
-      <div className="flex min-h-0 flex-1">
-        {sidebarOpen && !chromeHidden && <Sidebar config={config} status={status} onPickSource={pickSource} />}
-        <main className="min-w-0 flex-1">
+        <main className="min-h-0 flex-1">
           {activeView ? (
             <Wall config={config} view={activeView} focusedSlot={focusedSlot} onFocus={setFocusedSlot} onChangeSource={changeSlot} />
           ) : (
-            <div className="flex h-full flex-col items-center justify-center gap-3 text-center">
+            <div className="glass flex h-full flex-col items-center justify-center gap-3 rounded-3xl text-center">
               <img src="/blizzard.svg" alt="" className="h-16 w-16 opacity-80" />
-              <h1 className="text-lg font-semibold tracking-[0.25em] text-frost-100">BLIZZARD</h1>
+              <h1 className="text-lg font-bold tracking-[0.25em] text-frost-100">BLIZZARD</h1>
               <p className="max-w-md text-sm text-frost-500">
                 Nenhuma visão configurada. Edite <code className="font-mono text-frost-300">public/config/blizzard.config.json</code> no
                 servidor ou abra a configuração (tecla <kbd className="font-mono text-frost-300">C</kbd>).
@@ -252,7 +270,7 @@ export default function App() {
             </div>
           )}
         </main>
-      </div>
+      </section>
 
       {settingsOpen && (
         <SettingsDialog

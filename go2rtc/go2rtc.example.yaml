@@ -28,12 +28,14 @@ streams:
   # (Low para a grade, High para ampliar) e copie as URLs "rtsps://IP:7441/TOKEN?enableSrtp".
   # No go2rtc use o esquema rtspx:// (RTSPS sem SRTP e sem validar certificado), sem o "?enableSrtp".
   # ---------------------------------------------------------------------------
-  casa_garagem: rtspx://192.168.1.1:7441/TOKEN_LOW_GARAGEM
-  casa_garagem_hd: rtspx://192.168.1.1:7441/TOKEN_HIGH_GARAGEM
-  casa_entrada: rtspx://192.168.1.1:7441/TOKEN_LOW_ENTRADA
-  casa_entrada_hd: rtspx://192.168.1.1:7441/TOKEN_HIGH_ENTRADA
-  casa_quintal: rtspx://192.168.1.1:7441/TOKEN_LOW_QUINTAL
-  casa_quintal_hd: rtspx://192.168.1.1:7441/TOKEN_HIGH_QUINTAL
+  unifi_blzcam01: rtspx://192.168.155.254:7441/TOKEN_LOW_CAM01
+  unifi_blzcam01_hd: rtspx://192.168.155.254:7441/TOKEN_HIGH_CAM01
+  unifi_blzcam02: rtspx://192.168.155.254:7441/TOKEN_LOW_CAM02
+  unifi_blzcam02_hd: rtspx://192.168.155.254:7441/TOKEN_HIGH_CAM02
+  unifi_blzcam03: rtspx://192.168.155.254:7441/TOKEN_LOW_CAM03
+  unifi_blzcam03_hd: rtspx://192.168.155.254:7441/TOKEN_HIGH_CAM03
+  unifi_blzcam04: rtspx://192.168.155.254:7441/TOKEN_LOW_CAM04
+  unifi_blzcam04_hd: rtspx://192.168.155.254:7441/TOKEN_HIGH_CAM04
 
   # ---------------------------------------------------------------------------
   # Intelbras (condomínio)
@@ -46,11 +48,22 @@ streams:
   # Usuário e senha com caracteres especiais precisam de codificação de URL (@ vira %40, # vira %23…).
   # A porta 37777 do app Intelbras é do protocolo proprietário; o RTSP usa a 554.
   # ---------------------------------------------------------------------------
-  cond_portaria: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=1&subtype=1
-  cond_portaria_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=1&subtype=0
-  cond_portao: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=2&subtype=1
-  cond_portao_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=2&subtype=0
-  cond_piscina: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=3&subtype=1
+  cond_canal_1: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=1&subtype=1
+  cond_canal_1_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=1&subtype=0
+  cond_canal_2: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=2&subtype=1
+  cond_canal_2_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=2&subtype=0
+  cond_canal_3: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=3&subtype=1
+  cond_canal_3_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=3&subtype=0
+  cond_canal_4: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=4&subtype=1
+  cond_canal_4_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=4&subtype=0
+  cond_canal_5: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=5&subtype=1
+  cond_canal_5_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=5&subtype=0
+  cond_canal_6: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=6&subtype=1
+  cond_canal_6_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=6&subtype=0
+  cond_canal_7: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=7&subtype=1
+  cond_canal_7_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=7&subtype=0
+  cond_canal_8: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=8&subtype=1
+  cond_canal_8_hd: rtsp://admin%40greenforest:SENHA@192.168.15.6:554/cam/realmonitor?channel=8&subtype=0
 
   # ---------------------------------------------------------------------------
   # Câmeras já cadastradas no Home Assistant (opcional)

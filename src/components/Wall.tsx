@@ -13,7 +13,7 @@ interface Props {
 export function Wall({ config, view, focusedSlot, onFocus, onChangeSource }: Props) {
   if (focusedSlot !== null) {
     return (
-      <div className="h-full w-full p-1">
+      <div className="h-full w-full">
         <Tile
           config={config}
           source={findSource(config, view.slots[focusedSlot] ?? null)}
@@ -28,7 +28,7 @@ export function Wall({ config, view, focusedSlot, onFocus, onChangeSource }: Pro
 
   return (
     <div
-      className="grid h-full w-full gap-1 p-1"
+      className="grid h-full w-full gap-3.5"
       style={{
         gridTemplateColumns: `repeat(${view.columns}, minmax(0, 1fr))`,
         gridTemplateRows: `repeat(${view.rows}, minmax(0, 1fr))`,

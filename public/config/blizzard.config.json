@@ -22,57 +22,106 @@
   "sources": [
     {
       "type": "camera",
-      "id": "casa-garagem",
-      "name": "Garagem",
+      "id": "unifi-blzcam01",
+      "name": "BLZCAM01",
       "group": "casa",
-      "stream": "casa_garagem",
-      "hdStream": "casa_garagem_hd"
+      "stream": "unifi_blzcam01",
+      "hdStream": "unifi_blzcam01_hd"
     },
     {
       "type": "camera",
-      "id": "casa-entrada",
-      "name": "Entrada",
+      "id": "unifi-blzcam02",
+      "name": "BLZCAM02",
       "group": "casa",
-      "stream": "casa_entrada",
-      "hdStream": "casa_entrada_hd"
+      "stream": "unifi_blzcam02",
+      "hdStream": "unifi_blzcam02_hd"
     },
     {
       "type": "camera",
-      "id": "casa-quintal",
-      "name": "Quintal",
+      "id": "unifi-blzcam03",
+      "name": "BLZCAM03",
       "group": "casa",
-      "stream": "casa_quintal",
-      "hdStream": "casa_quintal_hd"
+      "stream": "unifi_blzcam03",
+      "hdStream": "unifi_blzcam03_hd"
+    },
+    {
+      "type": "camera",
+      "id": "unifi-blzcam04",
+      "name": "BLZCAM04",
+      "group": "casa",
+      "stream": "unifi_blzcam04",
+      "hdStream": "unifi_blzcam04_hd"
+    },
+    {
+      "type": "camera",
+      "id": "cond-canal-1",
+      "name": "Canal 1",
+      "group": "condominio",
+      "stream": "cond_canal_1",
+      "hdStream": "cond_canal_1_hd"
+    },
+    {
+      "type": "camera",
+      "id": "cond-canal-2",
+      "name": "Canal 2",
+      "group": "condominio",
+      "stream": "cond_canal_2",
+      "hdStream": "cond_canal_2_hd"
+    },
+    {
+      "type": "camera",
+      "id": "cond-canal-3",
+      "name": "Canal 3",
+      "group": "condominio",
+      "stream": "cond_canal_3",
+      "hdStream": "cond_canal_3_hd"
+    },
+    {
+      "type": "camera",
+      "id": "cond-canal-4",
+      "name": "Canal 4",
+      "group": "condominio",
+      "stream": "cond_canal_4",
+      "hdStream": "cond_canal_4_hd"
+    },
+    {
+      "type": "camera",
+      "id": "cond-canal-5",
+      "name": "Canal 5",
+      "group": "condominio",
+      "stream": "cond_canal_5",
+      "hdStream": "cond_canal_5_hd"
+    },
+    {
+      "type": "camera",
+      "id": "cond-canal-6",
+      "name": "Canal 6",
+      "group": "condominio",
+      "stream": "cond_canal_6",
+      "hdStream": "cond_canal_6_hd"
+    },
+    {
+      "type": "camera",
+      "id": "cond-canal-7",
+      "name": "Canal 7",
+      "group": "condominio",
+      "stream": "cond_canal_7",
+      "hdStream": "cond_canal_7_hd"
+    },
+    {
+      "type": "camera",
+      "id": "cond-canal-8",
+      "name": "Canal 8",
+      "group": "condominio",
+      "stream": "cond_canal_8",
+      "hdStream": "cond_canal_8_hd"
     },
     {
       "type": "dashboard",
-      "id": "blzcam01",
-      "name": "BLZCAM01",
+      "id": "blzcam01-nuvem",
+      "name": "BLZCAM01 (nuvem)",
       "group": "casa",
       "url": "https://monitor.ui.com/d19c0eb6-3d9e-4549-b585-8dd4c83bb1da"
-    },
-    {
-      "type": "camera",
-      "id": "cond-portaria",
-      "name": "Portaria",
-      "group": "condominio",
-      "stream": "cond_portaria",
-      "hdStream": "cond_portaria_hd"
-    },
-    {
-      "type": "camera",
-      "id": "cond-portao",
-      "name": "Portão veicular",
-      "group": "condominio",
-      "stream": "cond_portao",
-      "hdStream": "cond_portao_hd"
-    },
-    {
-      "type": "camera",
-      "id": "cond-piscina",
-      "name": "Piscina",
-      "group": "condominio",
-      "stream": "cond_piscina"
     },
     {
       "type": "dashboard",
@@ -93,15 +142,21 @@
     {
       "id": "geral",
       "name": "Geral",
-      "columns": 3,
-      "rows": 2,
+      "columns": 4,
+      "rows": 3,
       "slots": [
-        "blzcam01",
-        "casa-entrada",
-        "cond-portaria",
-        "cond-portao",
-        "ha-visao-geral",
-        "casa-quintal"
+        "unifi-blzcam01",
+        "unifi-blzcam02",
+        "unifi-blzcam03",
+        "unifi-blzcam04",
+        "cond-canal-1",
+        "cond-canal-2",
+        "cond-canal-3",
+        "cond-canal-4",
+        "cond-canal-5",
+        "cond-canal-6",
+        "cond-canal-7",
+        "cond-canal-8"
       ]
     },
     {
@@ -110,22 +165,26 @@
       "columns": 2,
       "rows": 2,
       "slots": [
-        "blzcam01",
-        "casa-entrada",
-        "casa-quintal",
-        "ha-visao-geral"
+        "unifi-blzcam01",
+        "unifi-blzcam02",
+        "unifi-blzcam03",
+        "unifi-blzcam04"
       ]
     },
     {
       "id": "condominio",
       "name": "Condomínio",
-      "columns": 2,
+      "columns": 4,
       "rows": 2,
       "slots": [
-        "cond-portaria",
-        "cond-portao",
-        "cond-piscina",
-        null
+        "cond-canal-1",
+        "cond-canal-2",
+        "cond-canal-3",
+        "cond-canal-4",
+        "cond-canal-5",
+        "cond-canal-6",
+        "cond-canal-7",
+        "cond-canal-8"
       ]
     },
     {

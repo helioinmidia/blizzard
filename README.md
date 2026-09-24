@@ -204,6 +204,14 @@ Sem isso, faça login **dentro do iframe** uma vez (com mouse/teclado no Pi): o 
 sessão. Para esconder cabeçalho e barra lateral do HA, instale o
 [kiosk-mode](https://github.com/NemesisRE/kiosk-mode) via HACS e acrescente `?kiosk` à URL do painel.
 
+## Interface
+
+Visual "Glacier": fundo azul-noite, painel lateral de vidro fosco com visões e fontes, cabeçalho com o
+nome da visão e relógio grande, células arredondadas com chip de estado (Ao vivo, Sem sinal, Painel).
+O grid de exemplo prevê 12 câmeras: **Geral** 4×3 (4 da casa + 8 do condomínio), **Casa** 2×2,
+**Condomínio** 4×2. A fonte Manrope vem do Google Fonts; sem internet a interface usa a fonte do sistema.
+O painel lateral abre por padrão e some com a tecla `S`; após 15 s sem mouse só o cursor é escondido.
+
 ## Uso na TV
 
 | Tecla | Ação |
@@ -222,7 +230,8 @@ Após 15 s sem mouse/teclado a interface some e fica só o vídeo.
 
 O Chromium do Pi decodifica vídeo por software. Regras práticas:
 
-- Na grade, use sempre o sub-stream das câmeras (≈640×360, ≤15 fps). 4 a 6 células rodam bem; 9 é o limite.
+- Na grade, use sempre o sub-stream das câmeras (≈640×360, ≤15 fps). 4 a 6 células rodam bem; a visão Geral
+  com 12 células só é viável com sub-streams pequenos (≈480×270, 10 fps) e mesmo assim exige teste no Pi.
 - H.264 é o codec seguro. H.265/HEVC não toca no Chromium do Pi; mude a câmera para H.264 ou deixe
   o go2rtc transcodificar apenas esse stream (`ffmpeg:...#video=h264`), com custo de CPU.
 - Prefira cabo de rede. Wi-Fi funciona, mas várias câmeras simultâneas sofrem com perda de pacotes.
