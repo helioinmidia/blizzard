@@ -3,7 +3,9 @@
 # Chamado pelo autostart da sessão gráfica do Raspberry Pi (ver pi/install.sh).
 set -u
 
-URL="${BLIZZARD_URL:-http://localhost/}"
+# Parâmetros por tela: sidebar=0 esconde o painel lateral (mais espaço para as células numa TV),
+# scale=1.15 amplia a interface para leitura à distância, view=<id> abre direto numa visão.
+URL="${BLIZZARD_URL:-http://localhost/?sidebar=0&scale=1.15}"
 
 # Espera o servidor web da central responder (o Docker pode subir depois da sessão gráfica).
 for _ in $(seq 1 60); do

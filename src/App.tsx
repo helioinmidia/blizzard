@@ -26,13 +26,21 @@ const SPOTLIGHT_VIEW_ID = '__spotlight'
 
 export default function App() {
   const [loaded, setLoaded] = useState<LoadedConfig>({ config: emptyConfig, origin: 'empty', error: null })
-  // ?view=<id> abre direto numa visão (uma segunda TV, ou um link para a visão do Home Assistant).
-  const [activeViewId, setActiveViewId] = useState<string | null>(() => new URLSearchParams(window.location.search).get('view'))
+  // Parâmetros por tela, na URL (a configuração é compartilhada entre TV e laptop, estes não):
+  //   ?view=<id>   abre direto numa visão (uma segunda TV, ou um link para a visão do Home Assistant)
+  //   ?sidebar=0   começa sem o painel lateral (mais espaço para as células na TV)
+  //   ?scale=1.25  amplia toda a interface (texto e chips) para leitura à distância
+  const params = useMemo(() => new URLSearchParams(window.location.search), [])
+  const uiScale = useMemo(() => {
+    const value = Number.parseFloat(params.get('scale') ?? '1')
+    return Number.isFinite(value) ? Math.min(2, Math.max(0.75, value)) : 1
+  }, [params])
+  const [activeViewId, setActiveViewId] = useState<string | null>(() => params.get('view'))
   /** Fonte ampliada a partir do painel lateral; não faz parte da configuração salva. */
   const [spotlightSource, setSpotlightSource] = useState<string | null>(null)
   const [focusedSlot, setFocusedSlot] = useState<number | null>(null)
   const [rotating, setRotating] = useState(false)
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(() => !['0', 'false', 'no'].includes((params.get('sidebar') ?? '1').toLowerCase()))
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
   const settingsOpenRef = useRef(false)
@@ -205,7 +213,7 @@ export default function App() {
   const canRotate = config.rotationSeconds > 0 && views.length > 1
 
   return (
-    <div className={`flex h-full gap-4 p-5 ${idle && !settingsOpen ? 'cursor-none' : ''}`}>
+    <div className={`flex h-full gap-4 p-5 ${idle && !settingsOpen ? 'cursor-none' : ''}`} style={{ zoom: uiScale }}>
       {sidebarOpen && (
         <Sidebar
           config={config}
