@@ -83,6 +83,12 @@ function readWanted() {
         }
       }
     }
+    // Temperatura do cabeçalho (chave "temperature" na raiz da configuração).
+    const headerEntity = config.temperature?.entity
+    if (typeof headerEntity === 'string' && /^[a-z_]+\.[a-z0-9_]+$/.test(headerEntity)) {
+      wanted.entities.add(headerEntity)
+      if (headerEntity.startsWith('weather.')) wanted.weather.add(headerEntity)
+    }
     return wanted
   } catch (err) {
     log(`Não foi possível ler ${CONFIG_PATH}: ${err.message}`)

@@ -1,10 +1,12 @@
 import { Maximize, PanelLeft, Pause, Play, Settings } from 'lucide-react'
-import type { View } from '../lib/config'
+import type { HeaderTemperature as HeaderTemperatureConfig, View } from '../lib/config'
+import { HeaderTemperature } from './HeaderTemperature'
 import { useClock } from '../hooks/useClock'
 
 interface Props {
   view: View | null
   subtitle: string
+  temperature: HeaderTemperatureConfig | null
   rotating: boolean
   canRotate: boolean
   onToggleRotation: () => void
@@ -17,7 +19,7 @@ interface Props {
 const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' })
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
-export function TopBar({ view, subtitle, rotating, canRotate, onToggleRotation, sidebarOpen, onToggleSidebar, onOpenSettings, onFullscreen }: Props) {
+export function TopBar({ view, subtitle, temperature, rotating, canRotate, onToggleRotation, sidebarOpen, onToggleSidebar, onOpenSettings, onFullscreen }: Props) {
   const now = useClock(1000)
   const date = dateFormatter.format(now)
 
@@ -60,6 +62,7 @@ export function TopBar({ view, subtitle, rotating, canRotate, onToggleRotation, 
             Configurar
           </button>
         </div>
+        {temperature && <HeaderTemperature config={temperature} />}
         <div className="flex flex-col items-end leading-none">
           <span className="text-[40px] font-bold tracking-tight tabular-nums">{timeFormatter.format(now)}</span>
           <span className="mt-1 text-[13px] text-frost-500">{date.charAt(0).toUpperCase() + date.slice(1)}</span>

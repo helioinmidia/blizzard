@@ -232,6 +232,7 @@ export default function App() {
         <TopBar
           view={activeView}
           subtitle={subtitle}
+          temperature={config.temperature}
           rotating={rotating}
           canRotate={canRotate}
           onToggleRotation={() => setRotating((r) => !r)}

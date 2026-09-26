@@ -205,6 +205,10 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
 
 - `type` da fonte: `camera` (stream do go2rtc), `ha` (cartões do Home Assistant, seção 3) ou `dashboard`
   (qualquer página em iframe).
+- `temperature` (opcional) mostra a temperatura atual no cabeçalho, ao lado do relógio, lida do Home
+  Assistant pela ponte: `"temperature": { "entity": "weather.casa" }`. Aceita `weather.*` (temperatura,
+  ícone e condição), `sensor.*` (valor com a unidade) ou `climate.*` (temperatura atual); `label` troca o
+  texto abaixo do valor e `bridgeUrl` a ponte (padrão `/ha`). A ponte assina essa entidade sozinha.
 - `kind` aceita `unifi_protect`, `intelbras`, `home_assistant` ou `other` (só muda a etiqueta).
 - `slots` lista os IDs das fontes linha a linha; `null` deixa a célula vazia.
 - `spans` (opcional) aumenta células: `"spans": { "0": { "cols": 2, "rows": 2 } }` faz o primeiro slot ocupar

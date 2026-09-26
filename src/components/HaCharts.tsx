@@ -1,20 +1,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore, type PointerEvent } from 'react'
-import {
-  AlertTriangle,
-  Cloud,
-  CloudFog,
-  CloudHail,
-  CloudLightning,
-  CloudRain,
-  CloudRainWind,
-  CloudSnow,
-  CloudSun,
-  Moon,
-  Sun,
-  Wind,
-  type LucideIcon,
-} from 'lucide-react'
+import { Cloud } from 'lucide-react'
 import type { HaCard } from '../lib/config'
+import { conditionIcons } from '../lib/conditionIcons'
 import { conditionLabel, formatNumber, haSeriesStore, isAvailable, type HaSnapshot } from '../lib/ha'
 
 // Paleta categórica para fundo escuro, em ordem fixa (a ordem é o que garante a separação para daltônicos).
@@ -315,23 +302,6 @@ export function BarsCard({ card, bridgeUrl, states, now }: CardProps) {
   )
 }
 
-const conditionIcons: Record<string, LucideIcon> = {
-  'clear-night': Moon,
-  cloudy: Cloud,
-  exceptional: AlertTriangle,
-  fog: CloudFog,
-  hail: CloudHail,
-  lightning: CloudLightning,
-  'lightning-rainy': CloudLightning,
-  partlycloudy: CloudSun,
-  pouring: CloudRainWind,
-  rainy: CloudRain,
-  snowy: CloudSnow,
-  'snowy-rainy': CloudSnow,
-  sunny: Sun,
-  windy: Wind,
-  'windy-variant': Wind,
-}
 
 export function WeatherCard({ card, states, forecasts }: { card: HaCard; states: HaSnapshot['states']; forecasts: HaSnapshot['forecasts'] }) {
   const entityId = card.entities[0]?.entity ?? ''

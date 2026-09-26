@@ -79,6 +79,15 @@ export interface View {
   spans?: Record<string, { cols: number; rows: number }>
 }
 
+export interface HeaderTemperature {
+  /** entity_id: weather.* (temperatura e condição), sensor.* (valor e unidade) ou climate.* (temperatura atual). */
+  entity: string
+  /** URL da ponte do Home Assistant vista pelo navegador (padrão "/ha"). */
+  bridgeUrl: string
+  /** Rótulo opcional ao lado do valor (ex.: "Rua"). */
+  label?: string
+}
+
 export interface BlizzardConfig {
   /** Base do go2rtc vista pelo navegador. Com o nginx do projeto é "/go2rtc". */
   go2rtcUrl: string
@@ -86,6 +95,8 @@ export interface BlizzardConfig {
   playerMode: string
   /** Intervalo do rodízio automático de visões, em segundos. 0 desliga. */
   rotationSeconds: number
+  /** Temperatura atual no cabeçalho, lida do Home Assistant pela ponte. null = não mostrar. */
+  temperature: HeaderTemperature | null
   groups: SourceGroup[]
   sources: Source[]
   views: View[]
@@ -97,6 +108,7 @@ export const emptyConfig: BlizzardConfig = {
   go2rtcUrl: '/go2rtc',
   playerMode: 'webrtc,mse,hls,mjpeg',
   rotationSeconds: 0,
+  temperature: null,
   groups: [],
   sources: [],
   views: [],
@@ -142,6 +154,18 @@ function asRecord(value: unknown, path: string): Record<string, unknown> {
 
 const haCardKinds: HaCardKind[] = ['list', 'graph', 'bars', 'weather']
 const sourceKinds: SourceKind[] = ['unifi_protect', 'intelbras', 'home_assistant', 'other']
+
+function parseHeaderTemperature(raw: unknown): HeaderTemperature | null {
+  if (raw === undefined || raw === null || raw === false) return null
+  const t = asRecord(raw, 'temperature')
+  const entity = expectEntityId(t.entity, 'temperature.entity')
+  const result: HeaderTemperature = {
+    entity,
+    bridgeUrl: typeof t.bridgeUrl === 'string' && t.bridgeUrl ? t.bridgeUrl.replace(/\/$/, '') : '/ha',
+  }
+  if (t.label !== undefined) result.label = expectString(t.label, 'temperature.label')
+  return result
+}
 
 /** Valida e normaliza um JSON de configuração. Lança ConfigError com mensagem legível. */
 export function parseConfig(raw: unknown): BlizzardConfig {
@@ -267,6 +291,7 @@ export function parseConfig(raw: unknown): BlizzardConfig {
     go2rtcUrl: typeof root.go2rtcUrl === 'string' && root.go2rtcUrl ? root.go2rtcUrl.replace(/\/$/, '') : emptyConfig.go2rtcUrl,
     playerMode: typeof root.playerMode === 'string' && root.playerMode ? root.playerMode : emptyConfig.playerMode,
     rotationSeconds: expectNumber(root.rotationSeconds, 'rotationSeconds', 0),
+    temperature: parseHeaderTemperature(root.temperature),
     groups,
     sources,
     views,
