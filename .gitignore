@@ -21,6 +21,9 @@ go2rtc/*.bak
 # Configuração real do go2rtc (contém senhas das câmeras). O exemplo versionado é go2rtc.example.yaml.
 go2rtc/go2rtc.yaml
 
+# Configuração real da central (gravada pela API). O exemplo versionado é blizzard.config.example.json.
+public/config/blizzard.config.json
+
 # Python
 __pycache__/
 *.pyc

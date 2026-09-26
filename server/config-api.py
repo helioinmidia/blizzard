@@ -191,7 +191,19 @@ class Handler(BaseHTTPRequestHandler):
         self._send(200, pretty, extra={"ETag": etag()})
 
 
+def ensure_config_file():
+    """Sem o arquivo real, parte do exemplo versionado que fica ao lado dele."""
+    if os.path.exists(CONFIG_PATH):
+        return
+    example = os.path.join(os.path.dirname(CONFIG_PATH), "blizzard.config.example.json")
+    if os.path.exists(example):
+        with open(example, "rb") as src:
+            write_config(src.read())
+        print(f"config-api: {CONFIG_PATH} criado a partir do exemplo", file=sys.stderr)
+
+
 def main():
+    ensure_config_file()
     print(f"blizzard config-api em http://{BIND}:{PORT} (arquivo: {CONFIG_PATH})", file=sys.stderr)
     ThreadingHTTPServer((BIND, PORT), Handler).serve_forever()
 

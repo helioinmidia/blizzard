@@ -9,6 +9,7 @@ REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 GO2RTC_PATH = os.path.join(REPO_DIR, "go2rtc", "go2rtc.yaml")
 GO2RTC_EXAMPLE = os.path.join(REPO_DIR, "go2rtc", "go2rtc.example.yaml")
 CONFIG_PATH = os.path.join(REPO_DIR, "public", "config", "blizzard.config.json")
+CONFIG_EXAMPLE = os.path.join(REPO_DIR, "public", "config", "blizzard.config.example.json")
 
 
 def slugify(name: str) -> str:
@@ -83,6 +84,8 @@ def apply_config(path: str, group: str, group_name: str, kind: str, sources, pre
     """Substitui as fontes geradas (mesmo id) e remove câmeras antigas do grupo cujo stream usa o
     mesmo prefixo e não foi regenerado (ex.: os exemplos cond_* do repositório). Células que
     apontavam para fontes removidas ficam vazias, para a configuração continuar válida."""
+    if not os.path.exists(path) and os.path.exists(CONFIG_EXAMPLE) and os.path.abspath(path) == os.path.abspath(CONFIG_PATH):
+        shutil.copyfile(CONFIG_EXAMPLE, path)
     config = json.load(open(path, encoding="utf-8"))
     groups = {g["id"] for g in config.get("groups", [])}
     if group not in groups:

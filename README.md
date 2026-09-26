@@ -179,6 +179,9 @@ mostra cada stream e permite testá-lo antes de colocar na grade.
 
 ### 2. Fontes e visões — `public/config/blizzard.config.json`
 
+Esse arquivo fica fora do git (é a configuração viva, gravada pela tela). O instalador e a API o criam a
+partir de `blizzard.config.example.json` quando não existe; `git pull` nunca o toca.
+
 Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). Estrutura:
 
 ```jsonc
@@ -383,7 +386,7 @@ src/lib/ha.ts            conexão SSE com a ponte e tradução dos estados do Ho
 src/components/          TopBar, Sidebar, Wall, Tile, VideoTile, HaTile, DashboardTile, SettingsDialog
 ha-bridge/               ponte do Home Assistant (token no servidor, estados por SSE)
 go2rtc/go2rtc.example.yaml  modelo dos streams (o real, go2rtc.yaml, fica fora do git)
-public/config/           configuração de fontes e visões (montada como volume no container)
+public/config/           blizzard.config.example.json (modelo); o real, blizzard.config.json, fica fora do git
 pi/                      instalação, quiosque e descoberta de câmeras (protect-streams.py, intelbras-streams.py)
 ```
 

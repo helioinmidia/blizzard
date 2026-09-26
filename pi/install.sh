@@ -43,6 +43,11 @@ fi
 sudo usermod -aG docker "$USER_NAME"
 sudo systemctl enable --now docker
 
+if [ ! -f "$REPO_DIR/public/config/blizzard.config.json" ]; then
+  echo "==> Criando public/config/blizzard.config.json a partir do exemplo"
+  cp "$REPO_DIR/public/config/blizzard.config.example.json" "$REPO_DIR/public/config/blizzard.config.json"
+fi
+
 if [ ! -f "$REPO_DIR/go2rtc/go2rtc.yaml" ]; then
   echo "==> Criando go2rtc/go2rtc.yaml a partir do exemplo (edite-o com as câmeras reais)"
   cp "$REPO_DIR/go2rtc/go2rtc.example.yaml" "$REPO_DIR/go2rtc/go2rtc.yaml"
