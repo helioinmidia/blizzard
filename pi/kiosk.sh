@@ -5,7 +5,9 @@ set -u
 
 # Parâmetros por tela: sidebar=0 esconde o painel lateral (mais espaço para as células numa TV),
 # scale=1.15 amplia a interface para leitura à distância, view=<id> abre direto numa visão.
-URL="${BLIZZARD_URL:-http://localhost/?sidebar=0&scale=1.15&view=casa}"
+# quality=auto: nesta tela a grade usa o stream de grade (Medium) e o HD fica para a célula ampliada; o Pi
+# não decodifica quatro streams 4K/4 MP ao mesmo tempo. O laptop, sem o parâmetro, mostra o HD na grade.
+URL="${BLIZZARD_URL:-http://localhost/?sidebar=0&scale=1.15&view=casa&quality=auto}"
 
 # Espera o servidor web da central responder (o Docker pode subir depois da sessão gráfica).
 for _ in $(seq 1 60); do

@@ -31,10 +31,15 @@ export default function App() {
   //   ?view=<id>   abre direto numa visão (uma segunda TV, ou um link para a visão do Home Assistant)
   //   ?sidebar=0   começa sem o painel lateral (mais espaço para as células na TV)
   //   ?scale=1.25  amplia toda a interface (texto e chips) para leitura à distância
+  //   ?quality=auto  nesta tela a grade usa o stream de grade e o HD só ao ampliar (Pi na TV); hd força o HD
   const params = useMemo(() => new URLSearchParams(window.location.search), [])
   const uiScale = useMemo(() => {
     const value = Number.parseFloat(params.get('scale') ?? '1')
     return Number.isFinite(value) ? Math.min(2, Math.max(0.75, value)) : 1
+  }, [params])
+  const qualityOverride = useMemo<BlizzardConfig['quality'] | null>(() => {
+    const value = params.get('quality')
+    return value === 'auto' || value === 'hd' ? value : null
   }, [params])
   const [activeViewId, setActiveViewId] = useState<string | null>(() => params.get('view'))
   /** Fonte ampliada a partir do painel lateral; não faz parte da configuração salva. */
@@ -73,12 +78,14 @@ export default function App() {
     return () => window.clearTimeout(id)
   }, [reload])
 
-  const { config } = loaded
+  const { config: savedConfig } = loaded
+  // Qualidade por tela: a URL vence a configuração compartilhada.
+  const config = useMemo<BlizzardConfig>(() => (qualityOverride ? { ...savedConfig, quality: qualityOverride } : savedConfig), [savedConfig, qualityOverride])
   const status = useGo2rtcStatus(config.go2rtcUrl)
   const idle = useIdle(IDLE_CURSOR_MS)
 
   // Outras telas (laptop, TV) podem ter salvo: sincroniza sem recarregar a página.
-  const serialized = useMemo(() => serializeConfig(config), [config])
+  const serialized = useMemo(() => serializeConfig(savedConfig), [savedConfig])
   useEffect(() => {
     if (loaded.origin !== 'api') return
     let cancelled = false
@@ -140,8 +147,8 @@ export default function App() {
         return
       }
       const next: BlizzardConfig = {
-        ...config,
-        views: config.views.map((view) => {
+        ...savedConfig,
+        views: savedConfig.views.map((view) => {
           if (view.id !== activeViewId) return view
           const slots = view.slots.slice()
           slots[slotIndex] = sourceId
@@ -150,7 +157,7 @@ export default function App() {
       }
       void persist(next)
     },
-    [config, activeViewId, spotlightSource, persist],
+    [savedConfig, activeViewId, spotlightSource, persist],
   )
 
   const pickSource = useCallback((sourceId: string) => {
