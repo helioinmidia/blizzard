@@ -114,15 +114,20 @@ export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSour
         )}
       </div>
 
-      {/* Câmeras já trazem o nome gravado no vídeo: só o chip de estado por cima. Painéis não têm rótulo próprio. */}
+      {/* Câmera: etiqueta com o nome à esquerda, estado e resolução à direita; nada mais sobre a imagem. */}
       {source.type === 'camera' && (
-        <div
-          className="pointer-events-none absolute flex items-center gap-1.5"
-          style={{ top: frame.top + 12, right: frame.right + 12 }}
-        >
-          {state.status === 'playing' && <ResolutionChip resolution={resolution} />}
-          <StatusChip source={source} state={state} />
-        </div>
+        <>
+          <div className="pointer-events-none absolute" style={{ top: frame.top + 12, left: frame.right + 12 }}>
+            <span className="chip chip-solid max-w-[60%] truncate text-[13px]">{source.name}</span>
+          </div>
+          <div
+            className="pointer-events-none absolute flex items-center gap-1.5"
+            style={{ top: frame.top + 12, right: frame.right + 12 }}
+          >
+            {state.status === 'playing' && <ResolutionChip resolution={resolution} />}
+            <StatusChip source={source} state={state} />
+          </div>
+        </>
       )}
       {source.type !== 'camera' && (
         <div className="cell-shade-top pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-2 px-4 pt-3 pb-6">
