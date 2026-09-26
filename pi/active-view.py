@@ -39,6 +39,31 @@ def has_picture(go2rtc: str, stream: str, timeout: float) -> bool:
         return False
 
 
+def best_grid(n: int, max_columns: int, max_rows: int, screen=(16.0, 9.0)):
+    """Escolhe colunas x linhas para n câmeras numa tela 16:9: sem célula vazia quando existe uma grade
+    exata com pelo menos 2 colunas e 2 linhas (4 -> 2x2, 8 -> 4x2, 6 -> 3x2); senão a grade com menos
+    vazias. Entre as candidatas, a de maior área de vídeo 16:9 por célula; empate favorece mais colunas."""
+    if n <= 1:
+        return 1, 1
+    width, height = screen
+
+    def video_area(c, r):
+        w, h = width / c, height / r
+        vw = min(w, h * 16 / 9)
+        return vw * vw * 9 / 16
+
+    candidates = [(c, r) for c in range(1, max_columns + 1) for r in range(1, max_rows + 1) if c * r >= n]
+    if not candidates:
+        return max_columns, max_rows
+    exact = [(c, r) for c, r in candidates if c * r == n and (c >= 2 and r >= 2 or n < 4)]
+    if exact:
+        pool = exact
+    else:
+        fewest_empty = min(c * r - n for c, r in candidates)
+        pool = [(c, r) for c, r in candidates if c * r - n == fewest_empty]
+    return max(pool, key=lambda cr: (video_area(*cr), cr[0]))
+
+
 def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--view", default="geral", help="id da visão a montar (criada se não existir)")
@@ -81,12 +106,8 @@ def main():
         chosen = chosen[:total]
 
     columns, rows = args.columns, args.rows
-    if not args.keep_empty and len(chosen) < total:
-        # Encolhe a grade para não sobrar célula vazia: menos linhas, depois menos colunas.
-        while rows > 1 and columns * (rows - 1) >= len(chosen):
-            rows -= 1
-        while columns > 1 and (columns - 1) * rows >= len(chosen):
-            columns -= 1
+    if not args.keep_empty:
+        columns, rows = best_grid(len(chosen), args.columns, args.rows)
     slots = chosen + [None] * (columns * rows - len(chosen))
 
     views = config.setdefault("views", [])
