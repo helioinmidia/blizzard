@@ -54,18 +54,24 @@ export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSour
         )}
       </div>
 
-      <div className="cell-shade-top pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-2 px-4 pt-3 pb-6">
-        <span className="truncate text-[15px] font-bold text-frost-100 drop-shadow">{source.name}</span>
-        <StatusChip source={source} state={state} />
-      </div>
-
-      <div className="cell-shade-bottom pointer-events-none absolute inset-x-0 bottom-0 flex items-center justify-between gap-2 px-4 pt-6 pb-3 text-xs text-frost-300 transition-opacity group-hover:opacity-0">
-        <span className="flex items-center gap-2 truncate">
+      {/* Câmeras já trazem o nome gravado no vídeo: só o chip de estado por cima. Painéis não têm rótulo próprio. */}
+      {source.type === 'camera' && (
+        <div className="pointer-events-none absolute right-3 top-3">
+          <StatusChip source={source} state={state} />
+        </div>
+      )}
+      {source.type !== 'camera' && (
+        <div className="cell-shade-top pointer-events-none absolute inset-x-0 top-0 flex items-center justify-between gap-2 px-4 pt-3 pb-6">
+          <span className="truncate text-[15px] font-bold text-frost-100 drop-shadow">{source.name}</span>
+          <StatusChip source={source} state={state} />
+        </div>
+      )}
+      {source.type !== 'camera' && (
+        <div className="cell-shade-bottom pointer-events-none absolute inset-x-0 bottom-0 flex items-center gap-2 px-4 pt-6 pb-3 text-xs text-frost-300 transition-opacity group-hover:opacity-0">
           {group && <SourceBadge kind={group.kind} />}
-          <span className="truncate">{source.type === 'camera' ? source.stream : source.type === 'ha' ? `${source.cards.length} ${source.cards.length === 1 ? 'cartão' : 'cartões'}` : new URL(source.url, window.location.href).host}</span>
-        </span>
-        {state.status === 'playing' && <span className="font-semibold">{state.mode}</span>}
-      </div>
+          <span className="truncate">{source.type === 'ha' ? `${source.cards.length} ${source.cards.length === 1 ? 'cartão' : 'cartões'}` : new URL(source.url, window.location.href).host}</span>
+        </div>
+      )}
 
       <SlotControls config={config} source={source} slotIndex={slotIndex} focused={focused} onFocus={onFocus} onChangeSource={onChangeSource} />
     </div>
