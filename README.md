@@ -100,6 +100,15 @@ novo quando adicionar câmeras: ele substitui só o bloco entre os marcadores `#
 ./pi/protect-streams.py --host 192.168.155.1 --user blizzard --password 'SENHA' --enable --apply
 ```
 
+**Qual canal vai para a grade.** Por padrão o script usa o canal **Medium** (1280×720) na grade e o **High**
+ao ampliar (`--grid low` volta ao 640×360). Numa TV de 42" a 720p já é nítido, e quatro streams 720p em
+H.264 é o que o Pi 4 decodifica com folga; o High das G5 (4 MP) só é viável numa célula por vez.
+
+**H.265 (Enhanced encoding).** As câmeras G5 saem de fábrica em H.265, que o Chromium do Pi não decodifica;
+o script então converte só o Low por software e deixa o High de fora, e a grade fica em 360p. Para ter HD na
+grade, mude cada câmera no Protect para *Settings → Encoding → **Standard (H.264)*** (as gravações ocupam
+mais disco) e rode o script de novo: Medium e High passam a tocar sem conversão.
+
 **UniFi Protect, manual.** No console Protect: Câmera → Configurações → Avançado → *RTSP*: ative os
 streams *Low* e *High* e copie as URLs (`rtsps://IP:7441/TOKEN?enableSrtp`). No go2rtc troque o esquema
 para `rtspx://` e remova o `?enableSrtp`:

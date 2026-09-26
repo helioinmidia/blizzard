@@ -134,15 +134,19 @@ def discover_v1(client: ProtectClient):
     for cam in client.v1_cameras():
         if cam.get("state") not in (None, "CONNECTED"):
             print(f"  aviso: {cam.get('name')} está {cam.get('state')}, gerando mesmo assim", file=sys.stderr)
-        streams = client.v1_streams(cam["id"], ["low", "high"])
-        if not streams:
-            streams = client.v1_streams(cam["id"], ["medium"])
+        streams = client.v1_streams(cam["id"], ["low", "medium", "high"])
         low = streams.get("low") or streams.get("medium")
+        medium = streams.get("medium")
         high = streams.get("high") or streams.get("medium")
         if not low:
             print(f"  aviso: {cam.get('name')} sem stream RTSPS disponível, pulando", file=sys.stderr)
             continue
-        result.append({"name": cam["name"], "low": rtspx(low), "high": rtspx(high) if high else None})
+        result.append({
+            "name": cam["name"],
+            "low": rtspx(low),
+            "medium": rtspx(medium) if medium else None,
+            "high": rtspx(high) if high else None,
+        })
     return result
 
 
@@ -153,7 +157,7 @@ def discover_legacy(client: ProtectClient, host: str, enable: bool):
     cameras = data.get("cameras", [])
     if enable:
         for cam in cameras:
-            wanted = [ch["id"] for ch in cam.get("channels", []) if ch.get("name") in ("High", "Low")]
+            wanted = [ch["id"] for ch in cam.get("channels", []) if ch.get("name") in ("High", "Medium", "Low")]
             if any(not ch.get("isRtspEnabled") for ch in cam.get("channels", []) if ch["id"] in wanted):
                 print(f"  habilitando RTSP em {cam['name']}…", file=sys.stderr)
                 client.enable_rtsp(cam, wanted)
@@ -162,6 +166,7 @@ def discover_legacy(client: ProtectClient, host: str, enable: bool):
     for cam in cameras:
         by_name = {ch.get("name"): ch for ch in cam.get("channels", []) if ch.get("isRtspEnabled") and ch.get("rtspAlias")}
         low = by_name.get("Low") or by_name.get("Medium")
+        medium = by_name.get("Medium")
         high = by_name.get("High") or by_name.get("Medium")
         if not low:
             print(f"  aviso: {cam['name']} sem canal RTSP habilitado (use --enable ou habilite no Protect), pulando", file=sys.stderr)
@@ -169,6 +174,7 @@ def discover_legacy(client: ProtectClient, host: str, enable: bool):
         result.append({
             "name": cam["name"],
             "low": f"rtspx://{host}:{port}/{low['rtspAlias']}",
+            "medium": f"rtspx://{host}:{port}/{medium['rtspAlias']}" if medium else None,
             "high": f"rtspx://{host}:{port}/{high['rtspAlias']}" if high else None,
         })
     return result
@@ -181,7 +187,9 @@ def main():
     parser.add_argument("--api-key", default=os.environ.get("PROTECT_API_KEY"))
     parser.add_argument("--user", default=os.environ.get("PROTECT_USER"))
     parser.add_argument("--password", default=os.environ.get("PROTECT_PASSWORD"))
-    parser.add_argument("--enable", action="store_true", help="(modo usuário/senha) habilita RTSP nos canais High e Low")
+    parser.add_argument("--enable", action="store_true", help="(modo usuário/senha) habilita RTSP nos canais High, Medium e Low")
+    parser.add_argument("--grid", choices=["low", "medium"], default="medium",
+                        help="canal usado na grade: medium (1280x720, padrão) ou low (640x360). Ampliar usa sempre o High.")
     parser.add_argument("--group", default="casa", help="grupo da Blizzard onde as câmeras entram (padrão: casa)")
     parser.add_argument("--prefix", default="unifi", help="prefixo dos nomes de stream no go2rtc (padrão: unifi)")
     parser.add_argument("--verify-tls", action="store_true", help="valida o certificado do console (padrão: não)")
@@ -207,10 +215,12 @@ def main():
         raise SystemExit("Nenhuma câmera com stream RTSP encontrada.")
     cameras.sort(key=lambda cam: natural_key(cam["name"]))
 
-    block, sources = build_outputs(cameras, args.group, args.prefix, TAG, SCRIPT, h264=args.h264)
+    block, sources = build_outputs(cameras, args.group, args.prefix, TAG, SCRIPT, h264=args.h264, grid=args.grid)
     print(f"\n{len(cameras)} câmera(s):", file=sys.stderr)
     for cam in cameras:
-        print(f"  - {cam['name']}", file=sys.stderr)
+        grid_channel = "Medium" if args.grid == "medium" and cam.get("medium") else "Low"
+        note = "" if grid_channel == "Medium" or args.grid == "low" else "  (sem canal Medium no Protect: grade em Low)"
+        print(f"  - {cam['name']}: grade em {grid_channel}, ampliar em High{note}", file=sys.stderr)
 
     if not args.apply:
         print("\n# go2rtc/go2rtc.yaml (dentro de streams:)")
