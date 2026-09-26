@@ -205,6 +205,8 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
 
 - `type` da fonte: `camera` (stream do go2rtc), `ha` (cartões do Home Assistant, seção 3) ou `dashboard`
   (qualquer página em iframe).
+- `quality` (opcional): `"hd"` (padrão) usa o `hdStream` de cada câmera também na grade; `"auto"` usa o
+  sub-stream na grade e o HD só ao ampliar, poupando o Pi quando há muitas células.
 - `temperature` (opcional) mostra a temperatura atual no cabeçalho, ao lado do relógio, lida do Home
   Assistant pela ponte: `"temperature": { "entity": "weather.casa" }`. Aceita `weather.*` (temperatura,
   ícone e condição), `sensor.*` (valor com a unidade) ou `climate.*` (temperatura atual); `label` troca o
@@ -354,7 +356,9 @@ Após 15 s sem mouse/teclado a interface some e fica só o vídeo.
 
 O Chromium do Pi decodifica vídeo por software. Regras práticas:
 
-- Na grade, use sempre o sub-stream das câmeras (≈640×360, ≤15 fps). 4 a 6 células rodam bem; 9 é o limite.
+- Com `quality: "hd"` (padrão) a grade decodifica o stream principal de cada câmera: 4 câmeras 1080p é o
+  limite confortável do Pi 4. Acima disso, use `"auto"`: sub-stream na grade (≈640×360, ≤15 fps) e HD só ao
+  ampliar. Em sub-stream, 4 a 6 células rodam bem; 9 é o limite.
 - H.264 é o codec seguro. **H.265/HEVC não toca no Chromium do Pi** (a célula mostra "codecs not matched:
   video:H265"). É o caso do UniFi Protect com *Enhanced encoding* ligado. Duas saídas:
   - **Na câmera (melhor):** Protect → câmera → Configurações → Gravação → *Encoding* **Standard (H.264)**.
