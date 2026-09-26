@@ -97,6 +97,8 @@ export interface BlizzardConfig {
   rotationSeconds: number
   /** Temperatura atual no cabeçalho, lida do Home Assistant pela ponte. null = não mostrar. */
   temperature: HeaderTemperature | null
+  /** "hd": a grade usa o hdStream de cada câmera sempre que existir (padrão). "auto": sub-stream na grade, HD só ao ampliar. */
+  quality: 'hd' | 'auto'
   groups: SourceGroup[]
   sources: Source[]
   views: View[]
@@ -109,6 +111,7 @@ export const emptyConfig: BlizzardConfig = {
   playerMode: 'webrtc,mse,hls,mjpeg',
   rotationSeconds: 0,
   temperature: null,
+  quality: 'hd',
   groups: [],
   sources: [],
   views: [],
@@ -154,6 +157,12 @@ function asRecord(value: unknown, path: string): Record<string, unknown> {
 
 const haCardKinds: HaCardKind[] = ['list', 'graph', 'bars', 'weather']
 const sourceKinds: SourceKind[] = ['unifi_protect', 'intelbras', 'home_assistant', 'other']
+
+function parseQuality(raw: unknown): 'hd' | 'auto' {
+  if (raw === undefined || raw === 'hd') return 'hd'
+  if (raw === 'auto') return 'auto'
+  throw new ConfigError('"quality" deve ser "hd" ou "auto".')
+}
 
 function parseHeaderTemperature(raw: unknown): HeaderTemperature | null {
   if (raw === undefined || raw === null || raw === false) return null
@@ -292,6 +301,7 @@ export function parseConfig(raw: unknown): BlizzardConfig {
     playerMode: typeof root.playerMode === 'string' && root.playerMode ? root.playerMode : emptyConfig.playerMode,
     rotationSeconds: expectNumber(root.rotationSeconds, 'rotationSeconds', 0),
     temperature: parseHeaderTemperature(root.temperature),
+    quality: parseQuality(root.quality),
     groups,
     sources,
     views,

@@ -2,6 +2,7 @@
   "go2rtcUrl": "/go2rtc",
   "playerMode": "webrtc,mse,hls,mjpeg",
   "rotationSeconds": 0,
+  "quality": "hd",
   "groups": [
     {
       "id": "casa",

@@ -50,7 +50,7 @@ export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSour
         {source.type === 'camera' ? (
           <VideoTile
             go2rtcUrl={config.go2rtcUrl}
-            stream={focused && source.hdStream ? source.hdStream : source.stream}
+            stream={(focused || config.quality === 'hd') && source.hdStream ? source.hdStream : source.stream}
             playerMode={config.playerMode}
             onState={setState}
           />
