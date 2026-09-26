@@ -26,6 +26,7 @@ export class BlizzardVideo extends VideoRTC {
     this.video.muted = true
     this.video.autoplay = true
     this.video.style.objectFit = 'cover'
+    this.video.style.objectPosition = 'left top'
     this.video.style.backgroundColor = '#000'
   }
 

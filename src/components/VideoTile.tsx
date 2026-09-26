@@ -44,7 +44,11 @@ export function VideoTile({ go2rtcUrl, stream, playerMode, fit, onState, onResol
         onResolutionRef.current?.({ width: video.videoWidth, height: video.videoHeight })
       }
     }
-    if (video) video.style.objectFit = fit
+    if (video) {
+      video.style.objectFit = fit
+      // Com cover, o corte fica embaixo/à direita: o carimbo nativo da câmera (canto superior esquerdo) permanece visível.
+      video.style.objectPosition = fit === 'cover' ? 'left top' : 'center'
+    }
     video?.addEventListener('loadedmetadata', report)
     video?.addEventListener('resize', report)
     onResolutionRef.current?.(null)
