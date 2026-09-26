@@ -101,7 +101,8 @@ novo quando adicionar câmeras: ele substitui só o bloco entre os marcadores `#
 ```
 
 **Qual canal vai para a grade.** Por padrão o script usa o canal **Medium** (1280×720) na grade e o **High**
-ao ampliar (`--grid low` volta ao 640×360). Numa TV de 42" a 720p já é nítido, e quatro streams 720p em
+ao ampliar (`--grid low` volta ao 640×360; `--grid high` põe o próprio High na grade, o que exige H.264 e
+costuma ser pesado demais para o Pi 4 com quatro células). Numa TV de 42" a 720p já é nítido, e quatro streams 720p em
 H.264 é o que o Pi 4 decodifica com folga; o High das G5 (4 MP) só é viável numa célula por vez.
 
 **H.265 (Enhanced encoding).** As câmeras G5 saem de fábrica em H.265, que o Chromium do Pi não decodifica;

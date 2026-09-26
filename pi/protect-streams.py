@@ -188,8 +188,9 @@ def main():
     parser.add_argument("--user", default=os.environ.get("PROTECT_USER"))
     parser.add_argument("--password", default=os.environ.get("PROTECT_PASSWORD"))
     parser.add_argument("--enable", action="store_true", help="(modo usuário/senha) habilita RTSP nos canais High, Medium e Low")
-    parser.add_argument("--grid", choices=["low", "medium"], default="medium",
-                        help="canal usado na grade: medium (1280x720, padrão) ou low (640x360). Ampliar usa sempre o High.")
+    parser.add_argument("--grid", choices=["low", "medium", "high"], default="medium",
+                        help="canal usado na grade: medium (1280x720, padrão), low (640x360) ou high (resolução máxima; "
+                             "pesado no Pi 4 com várias células). Ampliar usa sempre o High.")
     parser.add_argument("--group", default="casa", help="grupo da Blizzard onde as câmeras entram (padrão: casa)")
     parser.add_argument("--prefix", default="unifi", help="prefixo dos nomes de stream no go2rtc (padrão: unifi)")
     parser.add_argument("--verify-tls", action="store_true", help="valida o certificado do console (padrão: não)")
@@ -218,8 +219,9 @@ def main():
     block, sources = build_outputs(cameras, args.group, args.prefix, TAG, SCRIPT, h264=args.h264, grid=args.grid)
     print(f"\n{len(cameras)} câmera(s):", file=sys.stderr)
     for cam in cameras:
-        grid_channel = "Medium" if args.grid == "medium" and cam.get("medium") else "Low"
-        note = "" if grid_channel == "Medium" or args.grid == "low" else "  (sem canal Medium no Protect: grade em Low)"
+        wanted = {"high": cam.get("high"), "medium": cam.get("medium")}.get(args.grid)
+        grid_channel = args.grid.capitalize() if wanted else "Low"
+        note = "" if grid_channel != "Low" or args.grid == "low" else f"  (sem canal {args.grid.capitalize()} no Protect: grade em Low)"
         print(f"  - {cam['name']}: grade em {grid_channel}, ampliar em High{note}", file=sys.stderr)
 
     if not args.apply:
