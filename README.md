@@ -325,7 +325,7 @@ Ajustes **por tela**, na URL (a configuração é compartilhada entre TV e lapto
 | `?scale=1.15` | amplia toda a interface (0.75 a 2) para leitura à distância |
 | `?view=casa` | abre direto nessa visão |
 
-O quiosque do Pi usa `http://localhost/?sidebar=0&scale=1.15` (variável `BLIZZARD_URL` em `pi/kiosk.sh`).
+O quiosque do Pi usa `http://localhost/?sidebar=0&scale=1.15&view=casa` (variável `BLIZZARD_URL` em `pi/kiosk.sh`).
 Numa TV de 42" Full HD, a visão Geral 4×3 sem painel dá células de cerca de 22 × 12 cm; com 3×3, 29 × 16 cm.
 
 ## Uso na TV

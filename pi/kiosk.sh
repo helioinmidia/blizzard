@@ -5,7 +5,7 @@ set -u
 
 # Parâmetros por tela: sidebar=0 esconde o painel lateral (mais espaço para as células numa TV),
 # scale=1.15 amplia a interface para leitura à distância, view=<id> abre direto numa visão.
-URL="${BLIZZARD_URL:-http://localhost/?sidebar=0&scale=1.15}"
+URL="${BLIZZARD_URL:-http://localhost/?sidebar=0&scale=1.15&view=casa}"
 
 # Espera o servidor web da central responder (o Docker pode subir depois da sessão gráfica).
 for _ in $(seq 1 60); do
