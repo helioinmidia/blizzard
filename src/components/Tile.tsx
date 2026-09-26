@@ -37,24 +37,31 @@ function ResolutionChip({ resolution }: { resolution: Resolution | null }) {
   if (!resolution) return null
   const tier = resolution.height > 1080 ? 'Full' : resolution.height >= 720 ? 'High' : 'Low'
   return (
-    <span className="chip bg-ink-900/85 text-frost-300 ring-1 ring-white/10" title={`${resolution.width}×${resolution.height}`}>
+    <span className="chip chip-solid" title={`${resolution.width}×${resolution.height}`}>
       {tier} · {resolution.height}p
     </span>
   )
 }
 
 function StatusChip({ source, state }: { source: Source; state: PlayerState }) {
-  if (source.type !== 'camera') return <span className="chip bg-amber-500/15 text-amber-200">Painel</span>
+  if (source.type !== 'camera') return <span className="chip chip-solid">Painel</span>
   if (state.status === 'playing') {
     return (
-      <span className="chip bg-ink-900/85 text-forest-400 ring-1 ring-white/10">
+      <span className="chip chip-solid">
         <span className="h-1.5 w-1.5 rounded-full bg-forest-400" aria-hidden="true" />
         Ao vivo
       </span>
     )
   }
-  if (state.status === 'error') return <span className="chip bg-ink-900/85 text-amber-300 ring-1 ring-white/10">Sem sinal</span>
-  return <span className="chip bg-ink-900/85 text-frost-300 ring-1 ring-white/10">Conectando</span>
+  if (state.status === 'error') {
+    return (
+      <span className="chip chip-solid">
+        <span className="h-1.5 w-1.5 rounded-full bg-amber-400" aria-hidden="true" />
+        Sem sinal
+      </span>
+    )
+  }
+  return <span className="chip chip-solid">Conectando</span>
 }
 
 export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSource }: Props) {
