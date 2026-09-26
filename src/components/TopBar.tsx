@@ -16,7 +16,7 @@ interface Props {
   onFullscreen: () => void
 }
 
-const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit' })
+const timeFormatter = new Intl.DateTimeFormat('pt-BR', { hour: '2-digit', minute: '2-digit', second: '2-digit' })
 const dateFormatter = new Intl.DateTimeFormat('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })
 
 export function TopBar({ view, subtitle, temperature, rotating, canRotate, onToggleRotation, sidebarOpen, onToggleSidebar, onOpenSettings, onFullscreen }: Props) {
