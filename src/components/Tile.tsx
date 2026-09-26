@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Maximize2, Minimize2 } from 'lucide-react'
 import type { BlizzardConfig, Source } from '../lib/config'
 import { findGroup } from '../lib/config'
@@ -15,6 +15,32 @@ interface Props {
   focused: boolean
   onFocus: (slotIndex: number | null) => void
   onChangeSource: (slotIndex: number, sourceId: string | null) => void
+}
+
+type Resolution = { width: number; height: number }
+
+/** Deslocamento das barras (letterbox) do vídeo dentro da célula; zero quando a proporção coincide ou é desconhecida. */
+function videoFrame(cell: { width: number; height: number } | null, video: Resolution | null) {
+  if (!cell || !video || cell.width === 0 || cell.height === 0) return { top: 0, right: 0 }
+  const cellAspect = cell.width / cell.height
+  const videoAspect = video.width / video.height
+  if (cellAspect > videoAspect) {
+    const shown = cell.height * videoAspect
+    return { top: 0, right: (cell.width - shown) / 2 }
+  }
+  const shown = cell.width / videoAspect
+  return { top: (cell.height - shown) / 2, right: 0 }
+}
+
+/** Faixa de resolução do que está tocando: Low (< 720p), High (720p a 1080p), Full (acima de 1080p). */
+function ResolutionChip({ resolution }: { resolution: Resolution | null }) {
+  if (!resolution) return null
+  const tier = resolution.height > 1080 ? 'Full' : resolution.height >= 720 ? 'High' : 'Low'
+  return (
+    <span className="chip bg-ink-900/85 text-frost-300 ring-1 ring-white/10" title={`${resolution.width}×${resolution.height}`}>
+      {tier} · {resolution.height}p
+    </span>
+  )
 }
 
 function StatusChip({ source, state }: { source: Source; state: PlayerState }) {
@@ -34,6 +60,24 @@ function StatusChip({ source, state }: { source: Source; state: PlayerState }) {
 export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSource }: Props) {
   const group = source ? findGroup(config, source.group) : null
   const [state, setState] = useState<PlayerState>({ status: 'idle', mode: '', error: null })
+  const [resolution, setResolution] = useState<Resolution | null>(null)
+  const onResolution = useCallback((next: Resolution | null) => setResolution(next), [])
+  const cellRef = useRef<HTMLDivElement | null>(null)
+  const [cellSize, setCellSize] = useState<{ width: number; height: number } | null>(null)
+
+  useEffect(() => {
+    const element = cellRef.current
+    if (!element) return
+    const observer = new ResizeObserver((entries) => {
+      const rect = entries[0]?.contentRect
+      if (rect) setCellSize({ width: rect.width, height: rect.height })
+    })
+    observer.observe(element)
+    return () => observer.disconnect()
+  }, [])
+
+  // Retângulo que o vídeo ocupa de fato na célula (object-fit: contain deixa barras quando a proporção difere).
+  const frame = config.fit === 'contain' ? videoFrame(cellSize, resolution) : { top: 0, right: 0 }
 
   if (source === null) {
     return (
@@ -45,14 +89,16 @@ export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSour
   }
 
   return (
-    <div className="group cell relative h-full w-full overflow-hidden">
+    <div ref={cellRef} className="group cell relative h-full w-full overflow-hidden">
       <div className="h-full w-full">
         {source.type === 'camera' ? (
           <VideoTile
             go2rtcUrl={config.go2rtcUrl}
             stream={(focused || config.quality === 'hd') && source.hdStream ? source.hdStream : source.stream}
             playerMode={config.playerMode}
+            fit={config.fit}
             onState={setState}
+            onResolution={onResolution}
           />
         ) : source.type === 'ha' ? (
           <HaTile source={source} />
@@ -63,7 +109,11 @@ export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSour
 
       {/* Câmeras já trazem o nome gravado no vídeo: só o chip de estado por cima. Painéis não têm rótulo próprio. */}
       {source.type === 'camera' && (
-        <div className="pointer-events-none absolute right-3 top-3">
+        <div
+          className="pointer-events-none absolute flex items-center gap-1.5"
+          style={{ top: frame.top + 12, right: frame.right + 12 }}
+        >
+          {state.status === 'playing' && <ResolutionChip resolution={resolution} />}
           <StatusChip source={source} state={state} />
         </div>
       )}

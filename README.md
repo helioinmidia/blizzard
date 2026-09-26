@@ -205,6 +205,8 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
 
 - `type` da fonte: `camera` (stream do go2rtc), `ha` (cartões do Home Assistant, seção 3) ou `dashboard`
   (qualquer página em iframe).
+- `fit` (opcional): `"cover"` (padrão) preenche a célula com o vídeo, cortando bordas se a proporção diferir;
+  `"contain"` mostra a imagem inteira, com barras.
 - `quality` (opcional): `"hd"` (padrão) usa o `hdStream` de cada câmera também na grade; `"auto"` usa o
   sub-stream na grade e o HD só ao ampliar, poupando o Pi quando há muitas células.
 - `temperature` (opcional) mostra a temperatura atual no cabeçalho, ao lado do relógio, lida do Home

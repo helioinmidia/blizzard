@@ -7,7 +7,10 @@ interface Props {
   go2rtcUrl: string
   stream: string
   playerMode: string
+  fit: 'cover' | 'contain'
   onState?: (state: PlayerState) => void
+  /** Resolução decodificada (largura × altura), ou null enquanto não há vídeo. */
+  onResolution?: (resolution: { width: number; height: number } | null) => void
 }
 
 const initialState: PlayerState = { status: 'idle', mode: '', error: null }
@@ -15,13 +18,15 @@ const initialState: PlayerState = { status: 'idle', mode: '', error: null }
 /** Tempo sem vídeo até a célula refazer a conexão do zero. A TV fica ligada sem ninguém para dar F5. */
 const WATCHDOG_MS = 30_000
 
-export function VideoTile({ go2rtcUrl, stream, playerMode, onState }: Props) {
+export function VideoTile({ go2rtcUrl, stream, playerMode, fit, onState, onResolution }: Props) {
   const ref = useRef<BlizzardVideo | null>(null)
   const [state, setState] = useState<PlayerState>(initialState)
   const onStateRef = useRef(onState)
+  const onResolutionRef = useRef(onResolution)
   useEffect(() => {
     onStateRef.current = onState
-  }, [onState])
+    onResolutionRef.current = onResolution
+  }, [onState, onResolution])
 
   useEffect(() => {
     const element = ref.current
@@ -32,16 +37,30 @@ export function VideoTile({ go2rtcUrl, stream, playerMode, onState }: Props) {
       onStateRef.current?.(next)
     }
     element.addEventListener(PLAYER_STATE_EVENT, handle)
+    // A resolução real vem do <video> interno (WebRTC/MSE); em MJPEG não há vídeo decodificado.
+    const video = element.video
+    const report = () => {
+      if (video && video.videoWidth > 0 && video.videoHeight > 0) {
+        onResolutionRef.current?.({ width: video.videoWidth, height: video.videoHeight })
+      }
+    }
+    if (video) video.style.objectFit = fit
+    video?.addEventListener('loadedmetadata', report)
+    video?.addEventListener('resize', report)
+    onResolutionRef.current?.(null)
     element.mode = playerMode
     element.media = 'video'
     element.src = streamSocketUrl(go2rtcUrl, stream)
     return () => {
       element.removeEventListener(PLAYER_STATE_EVENT, handle)
+      video?.removeEventListener('loadedmetadata', report)
+      video?.removeEventListener('resize', report)
+      onResolutionRef.current?.(null)
       element.ondisconnect()
       setState(initialState)
       onStateRef.current?.(initialState)
     }
-  }, [go2rtcUrl, stream, playerMode])
+  }, [go2rtcUrl, stream, playerMode, fit])
 
   useEffect(() => {
     if (state.status === 'playing') return

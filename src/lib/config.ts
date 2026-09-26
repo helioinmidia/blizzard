@@ -99,6 +99,8 @@ export interface BlizzardConfig {
   temperature: HeaderTemperature | null
   /** "hd": a grade usa o hdStream de cada câmera sempre que existir (padrão). "auto": sub-stream na grade, HD só ao ampliar. */
   quality: 'hd' | 'auto'
+  /** "cover": o vídeo preenche a célula, cortando bordas se a proporção diferir (padrão). "contain": imagem inteira, com barras. */
+  fit: 'cover' | 'contain'
   groups: SourceGroup[]
   sources: Source[]
   views: View[]
@@ -112,6 +114,7 @@ export const emptyConfig: BlizzardConfig = {
   rotationSeconds: 0,
   temperature: null,
   quality: 'hd',
+  fit: 'cover',
   groups: [],
   sources: [],
   views: [],
@@ -302,6 +305,7 @@ export function parseConfig(raw: unknown): BlizzardConfig {
     rotationSeconds: expectNumber(root.rotationSeconds, 'rotationSeconds', 0),
     temperature: parseHeaderTemperature(root.temperature),
     quality: parseQuality(root.quality),
+    fit: root.fit === 'contain' ? 'contain' : root.fit === undefined || root.fit === 'cover' ? 'cover' : (() => { throw new ConfigError('"fit" deve ser "cover" ou "contain".') })(),
     groups,
     sources,
     views,
