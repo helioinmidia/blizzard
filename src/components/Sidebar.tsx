@@ -1,6 +1,7 @@
 import { Camera, Gauge, LayoutDashboard } from 'lucide-react'
 import type { BlizzardConfig, View } from '../lib/config'
 import type { Go2rtcStatus } from '../lib/go2rtc'
+import { BrandMark } from './BrandMark'
 
 interface Props {
   config: BlizzardConfig
@@ -19,11 +20,7 @@ export function Sidebar({ config, views, activeViewId, onSelectView, status, rot
   return (
     <aside className="glass flex w-[268px] shrink-0 flex-col gap-5 rounded-3xl p-4">
       <div className="flex items-center gap-3 px-1.5">
-        <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-ice-400 to-ice-500">
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#052033" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
-            <path d="M12 2v20M3 7l18 10M3 17l18-10" />
-          </svg>
-        </div>
+        <BrandMark />
         <div className="flex flex-col leading-tight">
           <span className="text-base font-bold tracking-wide">Blizzard</span>
           <span className="text-[11px] text-frost-500">{window.location.host}</span>

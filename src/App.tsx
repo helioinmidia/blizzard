@@ -16,6 +16,7 @@ import { TopBar } from './components/TopBar'
 import { Sidebar } from './components/Sidebar'
 import { Wall } from './components/Wall'
 import { SettingsDialog } from './components/SettingsDialog'
+import { BrandMark } from './components/BrandMark'
 import './lib/player'
 
 /** Sem mouse/teclado por este tempo, o cursor some (a interface fica, como no desenho da TV). */
@@ -270,7 +271,7 @@ export default function App() {
             <Wall config={config} view={activeView} focusedSlot={focusedSlot} onFocus={setFocusedSlot} onChangeSource={changeSlot} />
           ) : (
             <div className="glass flex h-full flex-col items-center justify-center gap-3 rounded-3xl text-center">
-              <img src="/blizzard.svg" alt="" className="h-16 w-16 opacity-80" />
+              <BrandMark className="h-16 w-16" />
               <h1 className="text-lg font-bold tracking-[0.25em] text-frost-100">BLIZZARD</h1>
               <p className="max-w-md text-sm text-frost-500">
                 Nenhuma visão configurada. Edite <code className="font-mono text-frost-300">public/config/blizzard.config.json</code> no

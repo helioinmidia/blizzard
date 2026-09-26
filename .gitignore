@@ -31,3 +31,7 @@ __pycache__/
 # uid/gid gravados pelo pi/install.sh e URL/token do Home Assistant (ver .env.example)
 .env
 __pycache__
+
+# Logo da marca (fora do git); ver public/brand/README.md
+public/brand/*
+!public/brand/README.md

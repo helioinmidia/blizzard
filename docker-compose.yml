@@ -56,6 +56,8 @@ services:
     volumes:
       # Edite public/config/blizzard.config.json e recarregue a página; não precisa rebuildar.
       - ./public/config:/usr/share/nginx/html/config:ro
+      # Logo da marca (public/brand/logo.svg), fora do git; ver public/brand/README.md.
+      - ./public/brand:/usr/share/nginx/html/brand:ro
     depends_on:
       - go2rtc
       - config-api
