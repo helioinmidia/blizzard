@@ -19,9 +19,16 @@ interface Props {
 
 function StatusChip({ source, state }: { source: Source; state: PlayerState }) {
   if (source.type !== 'camera') return <span className="chip bg-amber-500/15 text-amber-200">Painel</span>
-  if (state.status === 'playing') return <span className="chip bg-forest-500/20 text-forest-400">Ao vivo</span>
-  if (state.status === 'error') return <span className="chip bg-amber-500/20 text-amber-300">Sem sinal</span>
-  return <span className="chip text-frost-300">Conectando</span>
+  if (state.status === 'playing') {
+    return (
+      <span className="chip bg-ink-900/85 text-forest-400 ring-1 ring-white/10">
+        <span className="h-1.5 w-1.5 rounded-full bg-forest-400" aria-hidden="true" />
+        Ao vivo
+      </span>
+    )
+  }
+  if (state.status === 'error') return <span className="chip bg-ink-900/85 text-amber-300 ring-1 ring-white/10">Sem sinal</span>
+  return <span className="chip bg-ink-900/85 text-frost-300 ring-1 ring-white/10">Conectando</span>
 }
 
 export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSource }: Props) {
