@@ -67,7 +67,7 @@ O quiosque na TV não depende disso: ele abre a central direto em `127.0.0.1`.
 
 ### Atrás do proxy de entrada do servidor da casa
 
-Quando o Pi hospeda outras aplicações (repositório `servidor`), quem atende a porta 80 é o proxy de entrada,
+Quando o Pi hospeda outras aplicações (repositório [`garcias-home`](https://github.com/helioinmidia/garcias-home)), quem atende a porta 80 é o proxy de entrada,
 que separa as aplicações pelo nome (`view.blizzard.net`, `rotina.blizzard.net`…). A Blizzard sai da porta 80:
 
 ```bash
