@@ -25,7 +25,7 @@ Home Assistant ─▶ ha-bridge (SSE) ─▶ Blizzard web (nginx + React)
 | Blizzard web | Aplicação React (este repositório) servida por nginx, que também faz proxy de `/go2rtc` para o go2rtc de `/api` para a API de configuração e de `/ha` para a ponte do Home Assistant. |
 | API de configuração | `server/config-api.py` (Python, sem dependências): lê e grava `public/config/blizzard.config.json`. Toda alteração feita na tela é salva aqui, nunca no navegador. |
 | ha-bridge | Serviço Node sem dependências (`ha-bridge/server.mjs`). Guarda o token do Home Assistant no Pi e envia ao navegador, em tempo real e só para leitura, os estados das entidades usadas nos cartões. |
-| Chromium em quiosque | Abre `http://localhost/` em tela cheia no boot do Pi. |
+| Chromium em quiosque | Abre a central (`http://127.0.0.1/`, ou a porta de `BLIZZARD_WEB_LISTEN`) em tela cheia no boot do Pi. |
 
 Tudo sobe com `docker compose` e reinicia sozinho após queda de energia.
 
@@ -63,7 +63,20 @@ Primeiro fixe o IP do Pi com uma reserva de DHCP no roteador. Depois escolha uma
 - **Só o laptop**: adicione `10.255.200.100 view.blizzard.net` ao `/etc/hosts`
   (`C:\Windows\System32\drivers\etc\hosts` no Windows).
 
-O quiosque na TV não depende disso: ele abre `http://localhost/`.
+O quiosque na TV não depende disso: ele abre a central direto em `127.0.0.1`.
+
+### Atrás do proxy de entrada do servidor da casa
+
+Quando o Pi hospeda outras aplicações (repositório `servidor`), quem atende a porta 80 é o proxy de entrada,
+que separa as aplicações pelo nome (`view.blizzard.net`, `rotina.blizzard.net`…). A Blizzard sai da porta 80:
+
+```bash
+echo 'BLIZZARD_WEB_LISTEN=127.0.0.1:8080' >> ~/blizzard/.env
+cd ~/blizzard && sudo docker compose up -d --build web
+```
+
+O proxy repassa `view.blizzard.net` para `127.0.0.1:8080` e o quiosque lê a mesma variável para abrir
+`http://127.0.0.1:8080/`. O WebRTC do go2rtc (porta 8555) não passa pelo proxy e continua igual.
 
 Para atualizar a Blizzard mais tarde:
 
@@ -347,7 +360,7 @@ Ajustes **por tela**, na URL (a configuração é compartilhada entre TV e lapto
 | `?view=casa` | abre direto nessa visão |
 | `?quality=auto` | nesta tela a grade usa o stream de grade e o HD só ao ampliar (para o Pi na TV); `hd` força o HD |
 
-O quiosque do Pi usa `http://localhost/?sidebar=0&scale=1.15&view=casa&quality=auto` (variável `BLIZZARD_URL` em `pi/kiosk.sh`).
+O quiosque do Pi usa `http://127.0.0.1/?sidebar=0&scale=1.15&view=casa&quality=auto` (com a porta de `BLIZZARD_WEB_LISTEN`, se houver) (variável `BLIZZARD_URL` em `pi/kiosk.sh`).
 Numa TV de 42" Full HD, a visão Geral 4×3 sem painel dá células de cerca de 22 × 12 cm; com 3×3, 29 × 16 cm.
 
 ## Uso na TV
@@ -424,7 +437,7 @@ pi/                      instalação, quiosque e descoberta de câmeras (protec
   `Origin`; se você colocar outro proxy na frente, faça o mesmo ou defina `api.origin: "*"` no `go2rtc.yaml`.
 - **Cartão do HA em "Ponte do Home Assistant inacessível" ou "Home Assistant fora do ar"** — veja
   `sudo docker logs blizzard-ha-bridge`: falta o `.env`, o token foi recusado ou o Pi não alcança `HA_URL`.
-  `curl http://localhost/ha/health` mostra se a ponte está conectada e quantas entidades acompanha.
+  `curl http://view.blizzard.net/ha/health` mostra se a ponte está conectada e quantas entidades acompanha.
   "Sem dados" numa linha = `entity_id` errado; "Indisponível" = o próprio HA está sem o dispositivo.
 - **Painel do HA (iframe) em branco** — falta `use_x_frame_options: false` no HA, ou a URL usa `https` com
   certificado que o Chromium rejeita. Teste a URL direto no navegador do Pi.

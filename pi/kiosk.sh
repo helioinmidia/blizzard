@@ -7,7 +7,14 @@ set -u
 # scale=1.15 amplia a interface para leitura à distância, view=<id> abre direto numa visão.
 # quality=auto: nesta tela a grade usa o stream de grade (Medium) e o HD fica para a célula ampliada; o Pi
 # não decodifica quatro streams 4K/4 MP ao mesmo tempo. O laptop, sem o parâmetro, mostra o HD na grade.
-URL="${BLIZZARD_URL:-http://localhost/?sidebar=0&scale=1.15&view=casa&quality=auto}"
+# Vai direto ao nginx da Blizzard, sem passar pelo proxy de entrada do servidor da casa: a porta sai de
+# BLIZZARD_WEB_LISTEN no .env do repositório (ex.: 127.0.0.1:8080); sem ela, porta 80.
+REPO_DIR="$(cd "$(dirname "$0")/.." && pwd)"
+LISTEN="$(sed -n -E 's/^[[:space:]]*BLIZZARD_WEB_LISTEN=[[:space:]]*"?([^"[:space:]]*)"?.*/\1/p' "$REPO_DIR/.env" 2>/dev/null | tail -n 1)"
+PORT="${LISTEN##*:}"
+BASE="http://127.0.0.1${PORT:+:$PORT}"
+[ "${PORT:-80}" = "80" ] && BASE="http://127.0.0.1"
+URL="${BLIZZARD_URL:-$BASE/?sidebar=0&scale=1.15&view=casa&quality=auto}"
 
 # Espera o servidor web da central responder (o Docker pode subir depois da sessão gráfica).
 for _ in $(seq 1 60); do

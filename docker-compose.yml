@@ -64,3 +64,5 @@ services:
       - ha-bridge
     environment:
       - TZ=America/Sao_Paulo
+      # Onde o nginx escuta. Padrão 80; com o proxy de entrada do servidor da casa, 127.0.0.1:8080 (no .env).
+      - BLIZZARD_WEB_LISTEN=${BLIZZARD_WEB_LISTEN:-80}
