@@ -232,6 +232,13 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
   `"contain"` mostra a imagem inteira, com barras.
 - `quality` (opcional): `"hd"` (padrão) usa o `hdStream` de cada câmera também na grade; `"auto"` usa o
   sub-stream na grade e o HD só ao ampliar, poupando o Pi quando há muitas células.
+- `motionEntities` (opcional, por câmera) mostra no canto inferior esquerdo da célula a última detecção da
+  câmera, lida do Home Assistant pela ponte: tipo, horário e há quanto tempo (`Pessoa · 23:12 · há 5 min`).
+  Liste as entidades que registram detecções; vale a mais recente, e pessoa/veículo/animal têm preferência
+  sobre o "movimento" genérico do mesmo instante. Com o UniFi Protect:
+  `"motionEntities": ["event.garagem_motion_detection", "event.garagem_smart_detection"]`. Aceita `event.*`,
+  sensores de data/hora e `binary_sensor.*`. A ponte assina essas entidades sozinha, e os scripts
+  `pi/*-streams.py` preservam o campo ao regenerar as fontes.
 - `temperature` (opcional) mostra a temperatura atual no cabeçalho, ao lado do relógio, lida do Home
   Assistant pela ponte: `"temperature": { "entity": "weather.casa" }`. Aceita `weather.*` (temperatura,
   ícone e condição), `sensor.*` (valor com a unidade) ou `climate.*` (temperatura atual); `label` troca o

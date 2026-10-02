@@ -14,6 +14,8 @@ export interface HaEntityState {
     wind_speed?: number
     wind_speed_unit?: string
     temperature_unit?: string
+    /** Entidades `event.*`: tipo do último evento (ex.: "motion", "person", "vehicle"). */
+    event_type?: string
   }
   last_changed: string | null
 }
@@ -199,9 +201,9 @@ function withUnit(value: number, unit: string | undefined): string {
   return unit === '%' ? `${number.format(value)}%` : `${number.format(value)} ${unit}`
 }
 
-export function timeAgo(iso: string | null, now: number): string | undefined {
-  if (!iso) return undefined
-  const seconds = Math.max(0, Math.round((now - Date.parse(iso)) / 1000))
+export function timeAgo(at: string | number | null, now: number): string | undefined {
+  if (at === null || at === '') return undefined
+  const seconds = Math.max(0, Math.round((now - (typeof at === 'number' ? at : Date.parse(at))) / 1000))
   if (!Number.isFinite(seconds)) return undefined
   if (seconds < 60) return 'agora'
   if (seconds < 3600) return `há ${Math.floor(seconds / 60)} min`
@@ -232,6 +234,54 @@ const alarmStates: Record<string, string> = {
 
 export function isMotion(entityId: string, entity: HaEntityState | undefined): boolean {
   return domainOf(entityId) === 'binary_sensor' && MOTION.includes(entity?.attributes.device_class ?? '')
+}
+
+export type DetectionKind = 'motion' | 'person' | 'vehicle' | 'animal' | 'other'
+
+export interface Detection {
+  /** Instante da detecção, em ms. */
+  at: number
+  kind: DetectionKind
+  label: string
+}
+
+const detectionKinds: Record<string, [DetectionKind, string]> = {
+  motion: ['motion', 'Movimento'],
+  person: ['person', 'Pessoa'],
+  face: ['person', 'Rosto'],
+  vehicle: ['vehicle', 'Veículo'],
+  car: ['vehicle', 'Veículo'],
+  license_plate: ['vehicle', 'Placa'],
+  animal: ['animal', 'Animal'],
+  pet: ['animal', 'Animal'],
+  package: ['other', 'Pacote'],
+}
+
+/** Janela em que uma detecção específica (pessoa, veículo…) vale mais que o "movimento" genérico do mesmo instante. */
+const SAME_EVENT_MS = 30_000
+
+/**
+ * Detecção mais recente entre as entidades de uma câmera. `event.*` e sensores de data/hora guardam o instante
+ * no próprio estado (sobrevive a reinícios do Home Assistant); `binary_sensor.*` ligado vale "agora" e,
+ * desligado, o instante em que desligou.
+ */
+export function latestDetection(entityIds: string[], states: HaSnapshot['states'], now: number): Detection | null {
+  const found: Detection[] = []
+  for (const id of entityIds) {
+    const entity = states[id]
+    if (!isAvailable(entity)) continue
+    const binary = domainOf(id) === 'binary_sensor'
+    const at = binary ? (entity.state === 'on' ? now : Date.parse(entity.last_changed ?? '')) : Date.parse(entity.state)
+    if (!Number.isFinite(at)) continue
+    const type = entity.attributes.event_type ?? (binary ? entity.attributes.device_class : undefined) ?? ''
+    const [kind, label] = detectionKinds[type] ?? ['other', 'Detecção']
+    found.push({ at, kind, label })
+  }
+  if (found.length === 0) return null
+  found.sort((a, b) => b.at - a.at)
+  const latest = found[0]
+  if (latest.kind !== 'motion') return latest
+  return found.find((d) => d.kind !== 'motion' && latest.at - d.at <= SAME_EVENT_MS) ?? latest
 }
 
 /** Traduz o estado bruto do Home Assistant para o texto e a cor mostrados no cartão. */

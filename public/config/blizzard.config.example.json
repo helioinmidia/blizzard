@@ -27,7 +27,11 @@
       "name": "BLZCAM01",
       "group": "casa",
       "stream": "unifi_blzcam01",
-      "hdStream": "unifi_blzcam01_hd"
+      "hdStream": "unifi_blzcam01_hd",
+      "motionEntities": [
+        "event.blzcam01_motion_detection",
+        "event.blzcam01_smart_detection"
+      ]
     },
     {
       "type": "camera",

@@ -1,8 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { Maximize2, Minimize2 } from 'lucide-react'
+import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react'
+import { Activity, Car, Maximize2, Minimize2, PawPrint, PersonStanding, type LucideIcon } from 'lucide-react'
 import type { BlizzardConfig, Source } from '../lib/config'
-import { findGroup } from '../lib/config'
+import { DEFAULT_HA_BRIDGE_URL, findGroup } from '../lib/config'
+import { haStore, latestDetection, timeAgo, type DetectionKind } from '../lib/ha'
 import type { PlayerState } from '../lib/player'
+import { useClock } from '../hooks/useClock'
 import { VideoTile } from './VideoTile'
 import { DashboardTile } from './DashboardTile'
 import { HaTile } from './HaTile'
@@ -64,6 +66,46 @@ function StatusChip({ source, state }: { source: Source; state: PlayerState }) {
   return <span className="chip chip-solid">Conectando</span>
 }
 
+const detectionIcons: Record<DetectionKind, LucideIcon> = {
+  motion: Activity,
+  person: PersonStanding,
+  vehicle: Car,
+  animal: PawPrint,
+  other: Activity,
+}
+
+/** Detecção com menos de 2 min ganha ícone em destaque, para chamar o olhar na TV. */
+const RECENT_DETECTION_MS = 120_000
+
+/** "14:32" no mesmo dia; "30/09 14:32" em dias anteriores. */
+function detectionTime(at: number, now: number): string {
+  const date = new Date(at)
+  const time = date.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
+  if (date.toDateString() === new Date(now).toDateString()) return time
+  return `${date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} ${time}`
+}
+
+/** Última detecção da câmera (movimento, pessoa, veículo…), lida do Home Assistant pela ponte. */
+function MotionChip({ entities }: { entities: string[] }) {
+  const store = haStore(DEFAULT_HA_BRIDGE_URL)
+  const { status, states } = useSyncExternalStore(store.subscribe, store.getSnapshot)
+  const now = useClock(30_000).getTime()
+  const detection = latestDetection(entities, states, now)
+  if (!detection) return null
+  const Icon = detectionIcons[detection.kind]
+  const recent = now - detection.at < RECENT_DETECTION_MS
+  const stale = status !== 'online'
+  return (
+    <span
+      className={`chip chip-solid tabular-nums ${stale ? 'opacity-60' : ''}`}
+      title={stale ? 'Home Assistant sem conexão; última detecção conhecida' : 'Última detecção'}
+    >
+      <Icon className={`h-3.5 w-3.5 ${recent ? 'text-amber-400' : 'text-ice-400'}`} aria-hidden="true" />
+      {detection.label} · {detectionTime(detection.at, now)} · {timeAgo(detection.at, now)}
+    </span>
+  )
+}
+
 export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSource }: Props) {
   const group = source ? findGroup(config, source.group) : null
   const [state, setState] = useState<PlayerState>({ status: 'idle', mode: '', error: null })
@@ -123,6 +165,15 @@ export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSour
         >
           {state.status === 'playing' && <ResolutionChip resolution={resolution} />}
           <StatusChip source={source} state={state} />
+        </div>
+      )}
+      {/* Última detecção no canto inferior esquerdo; some no hover, que traz os controles da célula. */}
+      {source.type === 'camera' && source.motionEntities && (
+        <div
+          className="pointer-events-none absolute flex transition-opacity group-hover:opacity-0"
+          style={{ bottom: frame.top + 12, left: frame.right + 12 }}
+        >
+          <MotionChip entities={source.motionEntities} />
         </div>
       )}
       {source.type !== 'camera' && (

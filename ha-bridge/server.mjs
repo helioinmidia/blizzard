@@ -1,7 +1,8 @@
 // Blizzard · ponte do Home Assistant
 //
 // Mantém o token do HA no servidor e entrega ao navegador, por SSE, somente os estados das entidades
-// citadas nas fontes "ha" do blizzard.config.json. É somente leitura: não há rota que chame serviços.
+// citadas no blizzard.config.json (cartões das fontes "ha", "motionEntities" das câmeras e a temperatura
+// do cabeçalho). É somente leitura: não há rota que chame serviços.
 //
 //   GET /states      → { connected, states, forecasts }          (foto atual)
 //   GET /events      → SSE: "snapshot", "state", "forecast", "status" (tempo real)
@@ -32,6 +33,7 @@ const KEPT_ATTRIBUTES = [
   'wind_speed',
   'wind_speed_unit',
   'temperature_unit',
+  'event_type',
 ]
 
 const log = (...args) => console.log(new Date().toISOString(), ...args)
@@ -62,12 +64,18 @@ let lastActivity = 0
 let authenticated = false
 let nextId = 2
 
-/** Entidades citadas nas fontes "ha", separadas pelo que cada tipo de cartão precisa da ponte. */
+/** Entidades citadas na configuração, separadas pelo que cada tipo de cartão precisa da ponte. */
 function readWanted() {
   try {
     const config = JSON.parse(readFileSync(CONFIG_PATH, 'utf8'))
     const wanted = { entities: new Set(), history: new Set(), statistics: new Set(), weather: new Set(), hours: 24 }
     for (const source of config.sources ?? []) {
+      // Câmeras: entidades de detecção mostradas na célula ("motionEntities").
+      if (Array.isArray(source?.motionEntities)) {
+        for (const id of source.motionEntities) {
+          if (typeof id === 'string' && /^[a-z_]+\.[a-z0-9_]+$/.test(id)) wanted.entities.add(id)
+        }
+      }
       if (source?.type !== 'ha') continue
       for (const card of source.cards ?? []) {
         for (const item of card?.entities ?? []) {
@@ -187,7 +195,7 @@ function connect() {
     }
   }
   if (entityIds.length === 0) {
-    log('Nenhuma entidade configurada em fontes "ha"; aguardando mudança na configuração.')
+    log('Nenhuma entidade do Home Assistant na configuração; aguardando mudança.')
     states.clear()
     setConnected(false)
     return

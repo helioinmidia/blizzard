@@ -15,6 +15,11 @@ export interface CameraSource {
   stream: string
   /** Nome do stream no go2rtc usado em tela cheia (stream principal). Opcional. */
   hdStream?: string
+  /**
+   * Entidades do Home Assistant que registram detecções desta câmera (ex.: os `event.*_motion_detection` e
+   * `event.*_smart_detection` do UniFi Protect). A célula mostra a detecção mais recente entre elas. Opcional.
+   */
+  motionEntities?: string[]
 }
 
 export interface DashboardSource {
@@ -108,6 +113,9 @@ export interface BlizzardConfig {
 
 export const CONFIG_URL = '/config/blizzard.config.json'
 
+/** Ponte do Home Assistant vista pelo navegador quando a configuração não diz outra. */
+export const DEFAULT_HA_BRIDGE_URL = '/ha'
+
 export const emptyConfig: BlizzardConfig = {
   go2rtcUrl: '/go2rtc',
   playerMode: 'webrtc,mse,hls,mjpeg',
@@ -173,7 +181,7 @@ function parseHeaderTemperature(raw: unknown): HeaderTemperature | null {
   const entity = expectEntityId(t.entity, 'temperature.entity')
   const result: HeaderTemperature = {
     entity,
-    bridgeUrl: typeof t.bridgeUrl === 'string' && t.bridgeUrl ? t.bridgeUrl.replace(/\/$/, '') : '/ha',
+    bridgeUrl: typeof t.bridgeUrl === 'string' && t.bridgeUrl ? t.bridgeUrl.replace(/\/$/, '') : DEFAULT_HA_BRIDGE_URL,
   }
   if (t.label !== undefined) result.label = expectString(t.label, 'temperature.label')
   return result
@@ -230,7 +238,7 @@ export function parseConfig(raw: unknown): BlizzardConfig {
         }
         return { title: expectString(c.title, `${cardPath}.title`), kind, hours, entities }
       })
-      const bridgeUrl = typeof s.bridgeUrl === 'string' && s.bridgeUrl ? s.bridgeUrl.replace(/\/$/, '') : '/ha'
+      const bridgeUrl = typeof s.bridgeUrl === 'string' && s.bridgeUrl ? s.bridgeUrl.replace(/\/$/, '') : DEFAULT_HA_BRIDGE_URL
       const scale = expectNumber(s.scale, `sources[${i}].scale`, 1)
       if (scale < 0.5 || scale > 3) throw new ConfigError(`"sources[${i}].scale" deve ficar entre 0.5 e 3.`)
       return { type: 'ha', id, name, group, bridgeUrl, scale, cards }
@@ -244,6 +252,10 @@ export function parseConfig(raw: unknown): BlizzardConfig {
         stream: expectString(s.stream, `sources[${i}].stream`),
       }
       if (s.hdStream !== undefined) camera.hdStream = expectString(s.hdStream, `sources[${i}].hdStream`)
+      const motionEntities = expectArray(s.motionEntities, `sources[${i}].motionEntities`).map((ref, k) =>
+        expectEntityId(ref, `sources[${i}].motionEntities[${k}]`),
+      )
+      if (motionEntities.length > 0) camera.motionEntities = motionEntities
       return camera
     }
     throw new ConfigError(`"sources[${i}].type" deve ser "camera", "dashboard" ou "ha".`)

@@ -109,6 +109,11 @@ def apply_config(path: str, group: str, group_name: str, kind: str, sources, pre
             and source["stream"] not in streams
         )
 
+    # O que foi configurado à mão numa fonte (entidades de detecção do Home Assistant) sobrevive à regeneração.
+    previous = {s["id"]: s for s in config.get("sources", [])}
+    for source in sources:
+        if "motionEntities" in previous.get(source["id"], {}):
+            source["motionEntities"] = previous[source["id"]]["motionEntities"]
     removed = {s["id"] for s in config.get("sources", []) if stale(s)}
     kept = [s for s in config.get("sources", []) if s["id"] not in ids and s["id"] not in removed]
     config["sources"] = kept + sources

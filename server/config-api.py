@@ -60,6 +60,10 @@ def validate(raw):
         kind = s.get("type", "camera")
         if kind == "camera" and not s.get("stream"):
             raise ConfigError(f'"sources[{i}].stream" é obrigatório para câmeras')
+        if kind == "camera":
+            motion = s.get("motionEntities", [])
+            if not isinstance(motion, list) or not all(isinstance(e, str) and ENTITY_ID.match(e) for e in motion):
+                raise ConfigError(f'"sources[{i}].motionEntities" deve ser uma lista de entity_id do Home Assistant')
         if kind == "dashboard" and not s.get("url"):
             raise ConfigError(f'"sources[{i}].url" é obrigatório para painéis')
         if kind == "ha":
