@@ -156,24 +156,17 @@ export function Tile({ config, source, slotIndex, focused, onFocus, onChangeSour
         )}
       </div>
 
-      {/* Câmera: o nome é o carimbo nativo da própria câmera (canto superior esquerdo do vídeo); por cima, só
-          estado e resolução à direita. O corte do "cover" é ancorado no canto superior esquerdo para preservar o carimbo. */}
+      {/* Câmera: o nome é o carimbo nativo da própria câmera (canto superior esquerdo do vídeo); por cima, só os
+          chips à direita: última detecção, resolução e estado. O corte do "cover" é ancorado no canto superior
+          esquerdo para preservar o carimbo. */}
       {source.type === 'camera' && (
         <div
           className="pointer-events-none absolute flex items-center gap-1.5"
           style={{ top: frame.top + 12, right: frame.right + 12 }}
         >
+          {source.motionEntities && <MotionChip entities={source.motionEntities} />}
           {state.status === 'playing' && <ResolutionChip resolution={resolution} />}
           <StatusChip source={source} state={state} />
-        </div>
-      )}
-      {/* Última detecção no canto inferior esquerdo; some no hover, que traz os controles da célula. */}
-      {source.type === 'camera' && source.motionEntities && (
-        <div
-          className="pointer-events-none absolute flex transition-opacity group-hover:opacity-0"
-          style={{ bottom: frame.top + 12, left: frame.right + 12 }}
-        >
-          <MotionChip entities={source.motionEntities} />
         </div>
       )}
       {source.type !== 'camera' && (

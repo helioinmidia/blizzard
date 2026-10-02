@@ -232,8 +232,8 @@ Esse arquivo é lido pela página a cada carregamento (não precisa rebuildar). 
   `"contain"` mostra a imagem inteira, com barras.
 - `quality` (opcional): `"hd"` (padrão) usa o `hdStream` de cada câmera também na grade; `"auto"` usa o
   sub-stream na grade e o HD só ao ampliar, poupando o Pi quando há muitas células.
-- `motionEntities` (opcional, por câmera) mostra no canto inferior esquerdo da célula a última detecção da
-  câmera, lida do Home Assistant pela ponte: tipo, horário e há quanto tempo (`Pessoa · 23:12 · há 5 min`).
+- `motionEntities` (opcional, por câmera) mostra no canto superior direito da célula, ao lado dos chips de
+  resolução e estado, a última detecção da câmera, lida do Home Assistant pela ponte: tipo, horário e há quanto tempo (`Pessoa · 23:12 · há 5 min`).
   Liste as entidades que registram detecções; vale a mais recente, e pessoa/veículo/animal têm preferência
   sobre o "movimento" genérico do mesmo instante. Com o UniFi Protect:
   `"motionEntities": ["event.garagem_motion_detection", "event.garagem_smart_detection"]`. Aceita `event.*`,
